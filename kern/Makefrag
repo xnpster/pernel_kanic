@@ -1,0 +1,134 @@
+#
+# Makefile fragment for JOS kernel.
+# This is NOT a complete makefile;
+# you must run GNU make in the top-level directory
+# where the GNUmakefile is located.
+#
+
+OBJDIRS += kern
+
+KERN_LDFLAGS := $(LDFLAGS) -T kern/kernel.ld -nostdlib
+
+# We snatch the use of a couple handy source files
+# from the lib directory, to avoid gratuitous code duplication.
+KERN_SRCFILES := kern/bootstrap.S \
+			kern/entry.S \
+			kern/init.c \
+			kern/console.c \
+			kern/dwarf.c \
+			kern/dwarf_lines.c \
+			kern/monitor.c \
+			kern/env.c \
+			kern/kclock.c \
+			kern/picirq.c \
+			kern/printf.c \
+			kern/trap.c \
+			kern/trapentry.S \
+			kern/sched.c \
+			kern/syscall.c \
+			kern/kdebug.c \
+			lib/printfmt.c \
+			lib/readline.c \
+			lib/string.c \
+			kern/uefi.c \
+			kern/uefiasm.S
+
+# Only build files if they exist.
+KERN_SRCFILES := $(wildcard $(KERN_SRCFILES))
+
+ifdef GRADE3_TEST
+KERN_SRCFILES += kern/payload.c
+.INTERMEDIATE: kern/payload.c
+endif
+
+ifdef KUBSAN
+KERN_SRCFILES +=	llvm/ubsan/ubsan.c
+endif
+
+KERN_OBJFILES := $(patsubst %.c, $(OBJDIR)/%.o, $(KERN_SRCFILES))
+KERN_OBJFILES := $(patsubst %.S, $(OBJDIR)/%.o, $(KERN_OBJFILES))
+KERN_OBJFILES := $(patsubst $(OBJDIR)/lib/%, $(OBJDIR)/kern/%, $(KERN_OBJFILES))
+
+define PAYLOAD
+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
+AAA=
+endef
+export PAYLOAD
+
+KERNBASE := $(shell sed -n 's/^\#define KERN_BASE_ADDR \(.*\)/\1/p' inc/memlayout.h)
+KERNOFF := $(shell sed -n 's/^\#define KERN_START_OFFSET \(.*\)/\1/p' inc/memlayout.h)
+
+kern/kernel.ld: kern/kernel.ld.in
+	@sed 's/\@KERNSTART\@/$(KERNBASE) + $(KERNOFF)/' $< > $@
+
+kern/payload.c:
+	@eval `/bin/echo "$$PAYLOAD" | base64 --decode | gzip -d > kern/payload.c`
+
+# How to build kernel object files
+$(OBJDIR)/kern/%.o: kern/%.c $(OBJDIR)/.vars.KERN_CFLAGS
+	@echo + cc $<
+	@mkdir -p $(@D)
+	$(V)$(CC) $(KERN_CFLAGS) $(KERN_SAN_CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/kern/%.o: kern/%.S $(OBJDIR)/.vars.KERN_CFLAGS
+	@echo + as $<
+	@mkdir -p $(@D)
+	$(V)$(CC) $(KERN_CFLAGS) $(KERN_SAN_CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/kern/%.o: lib/%.c $(OBJDIR)/.vars.KERN_CFLAGS
+	@echo + cc $<
+	@mkdir -p $(@D)
+	$(V)$(CC) $(KERN_CFLAGS) $(KERN_SAN_CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/llvm/ubsan/%.o: llvm/ubsan/%.c $(OBJDIR)/.vars.KERN_CFLAGS
+	@echo + $(CC) $<
+	@mkdir -p $(@D)
+	$(V)$(CC) -ffreestanding $(KERN_CFLAGS) $(KERN_SAN_CFLAGS) -c -o $@ $<
+
+# Special flags for kern/init
+$(OBJDIR)/kern/init.o: override KERN_CFLAGS+=$(INIT_CFLAGS)
+$(OBJDIR)/kern/init.o: $(OBJDIR)/.vars.INIT_CFLAGS
+
+# How to build the kernel itself
+$(OBJDIR)/kern/kernel: $(KERN_OBJFILES) $(KERN_BINFILES) kern/kernel.ld \
+	  $(OBJDIR)/.vars.KERN_LDFLAGS
+	@echo + ld $@
+	$(V)$(LD) -o $@ $(KERN_LDFLAGS) $(KERN_SAN_LDFLAGS) $(KERN_OBJFILES) $(GCC_LIB) $(KERN_BINFILES)
+	$(V)$(OBJDUMP) -S $@ > $@.asm
+	$(V)$(NM) -n $@ > $@.sym
+
+all: $(OBJDIR)/kern/kernel

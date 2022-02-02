@@ -1,0 +1,21 @@
+## @file
+# Copyright (c) 2020, ISP RAS. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+##
+
+[Defines]
+  DEC_SPECIFICATION              = 0x00010005
+  PACKAGE_NAME                   = LoaderPkg
+  PACKAGE_GUID                   = FA97FEE1-163A-414B-B41B-073FEA3B9B17
+  PACKAGE_VERSION                = 0.1
+
+[Includes]
+  Include
+
+[LibraryClasses]
+
+[Guids]
+
+[Ppis]
+
+[Protocols]

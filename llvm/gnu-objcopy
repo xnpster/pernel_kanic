@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# This script converts certain gnu binutils objcopy arguments
+# into llvm-objcopy arguments. Currently only -S (strip all)
+# and -j (keep sections) are supported.
+
+argv=($@)
+argc=$#
+
+# Starting from LLVM 8.0 -only-keep became --only-section.
+if [ "$(llvm-objcopy --help | grep 'only-section')" != "" ]; then
+    KEEP="--only-section"
+else
+    KEEP="-only-keep"
+fi
+
+for ((i=0; $i<$argc; i++)); do
+    if [ "${argv[$i]}" = "-S" ]; then
+        argv[$i]="--strip-all"
+    elif [ "${argv[$i]}" = "-j" ]; then
+        argv[$i]="${KEEP}"
+        i=$((i+1))
+    elif [ "${argv[$i]}" = "-O" ]; then
+        i=$((i+1))
+        if [ "${argv[$i]}" != "binary" ]; then
+            echo "llvm-objcopy cannot output to ${argv[$i]}"
+            exit 1
+        fi
+    elif [[ "${argv[$i]}" == -* ]]; then
+        echo "Unsupported argument ${argv[$i]}"
+        exit 1
+    fi
+done
+
+llvm-objcopy "${argv[@]}"
