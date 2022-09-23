@@ -109,7 +109,7 @@ InitGraphics (
   // LAB 1:
   //
   // Switch to this resolution (or lower)
-  UINTN maxX = 1920, maxY = 1080;
+  UINTN maxX = 1000, maxY = 500;
   
   UINTN MaxMode = GraphicsOutput->Mode->MaxMode;
   UINTN targetMode = 0, maxResolution = 0;
