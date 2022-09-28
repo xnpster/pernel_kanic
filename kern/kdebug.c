@@ -6,6 +6,7 @@
 #include <inc/x86.h>
 
 #include <kern/kdebug.h>
+#include <kern/env.h>
 #include <inc/uefi.h>
 
 void
@@ -84,7 +85,9 @@ uintptr_t
 find_function(const char *const fname) {
     /* There are two functions for function name lookup.
      * address_by_fname, which looks for function name in section .debug_pubnames
-     * and naive_address_by_fname which performs full traversal of DIE tree */
+     * and naive_address_by_fname which performs full traversal of DIE tree.
+     * It may also be useful to look to kernel symbol table for symbols defined
+     * in assembly. */
 
     // LAB 3: Your code here:
 
