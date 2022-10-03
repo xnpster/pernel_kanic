@@ -16,7 +16,7 @@ entry:
 
     # Save LoadParams in uefi_lp.
     movq %rcx, uefi_lp(%rip)
-
+    
     # Invoke C code
     call i386_init
     # Should never reach this place
@@ -71,10 +71,11 @@ sys_yield:
     call csys_yield
     jmp .
 
-# LAB 3: Your code here:
 .globl sys_exit
 .type  sys_exit, @function
 sys_exit:
+    cli
+    call csys_exit
     jmp .
 
 #endif

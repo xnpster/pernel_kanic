@@ -90,6 +90,41 @@ error:
     return res;
 }
 
+struct sym_table_t {
+        char *name;
+            void *addr;
+};
+
+struct sym_table_t gbl_sym_table[1] __attribute__((weak)) = {{NULL, NULL}};
+
+void * reflect_query_symbol(const char *name) {
+    struct sym_table_t *p = &gbl_sym_table[0];
+
+    for(; p->name; p++) {
+        if(strcmp(p->name, name) == 0) {
+            return p->addr;
+        }
+    }
+    return NULL;
+}
+
+uintptr_t find_asm_name(const char* fname) {
+    struct Elf64_Sym* symb = (struct Elf64_Sym*) uefi_lp->SymbolTableStart;
+    struct Elf64_Sym* end = (struct Elf64_Sym*) uefi_lp->SymbolTableEnd;
+
+    uint8_t* strtable = (uint8_t*) uefi_lp->StringTableStart;
+    
+    for(; symb < end; symb = symb + 1) {
+        if(symb->st_name != 0) {
+            if(!strcmp(fname, (const char*) (strtable + symb->st_name))) {
+                return (uintptr_t) &(symb->st_value);
+            }
+        }
+    }
+
+    return 0;
+}
+
 uintptr_t
 find_function(const char *const fname) {
     /* There are two functions for function name lookup.
@@ -97,8 +132,21 @@ find_function(const char *const fname) {
      * and naive_address_by_fname which performs full traversal of DIE tree.
      * It may also be useful to look to kernel symbol table for symbols defined
      * in assembly. */
+    struct Dwarf_Addrs addrs;
+    load_kernel_dwarf_info(&addrs);
+    
+    uintptr_t offset = 0;
 
-    // LAB 3: Your code here:
+    int res = address_by_fname(&addrs, fname, &offset);
 
-    return 0;
+    if(offset != 0) {
+        return offset;
+    }
+    
+    res = naive_address_by_fname(&addrs, fname, &offset);
+    if(offset != 0) {
+        return offset;
+    }
+    
+    return find_asm_name(fname);
 }

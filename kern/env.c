@@ -85,11 +85,25 @@ envid2env(envid_t envid, struct Env **env_store, bool need_check_perm) {
  */
 void
 env_init(void) {
+    if(envs == NULL) {
+        return;
+    }
+    
+    struct Env* curr = envs;
 
-    /* Set up envs array */
-
-    // LAB 3: Your code here
-
+    for(int i = 0; i < NENV - 1; i++) {
+        curr->env_type = ENV_FREE; 
+        curr->env_id = 0;    
+        curr->env_parent_id = 0;
+        curr->env_link = curr + 1;
+        curr++;
+    }
+    curr->env_type = ENV_FREE; 
+    curr->env_id = 0;    
+    curr->env_parent_id = 0;
+    curr->env_link = NULL;
+    
+    env_free_list = envs; 
 }
 
 /* Allocates and initializes a new environment.
@@ -145,8 +159,9 @@ env_alloc(struct Env **newenv_store, envid_t parent_id, enum EnvType type) {
     env->env_tf.tf_ss = GD_KD;
     env->env_tf.tf_cs = GD_KT;
 
-    // LAB 3: Your code here:
-    //static uintptr_t stack_top = 0x2000000;
+    static uintptr_t stack_top = 0x2000000 - 2*PAGE_SIZE;
+    stack_top += 2*PAGE_SIZE;
+    env->env_tf.tf_rsp = stack_top;
 #else
     env->env_tf.tf_ds = GD_UD | 3;
     env->env_tf.tf_es = GD_UD | 3;
@@ -168,11 +183,58 @@ env_alloc(struct Env **newenv_store, envid_t parent_id, enum EnvType type) {
  * Make sure you understand why you need to check that each binding
  * must be performed within the image_start/image_end range.
  */
+static const char* find_name(uint8_t *symtable, uint8_t *strtable, size_t entry_size, size_t table_size, UINT64 *val) {
+    for(size_t offset = 0; offset < table_size; offset += entry_size) {
+        struct Elf64_Sym* symb = (struct Elf64_Sym*) (symtable + offset);
+
+        if(symb->st_value == *val) {
+            return symb->st_name ? (const char*) (strtable + symb->st_name) : 0;
+        }
+    }
+
+    return NULL;
+}
+
 static int
 bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_start, uintptr_t image_end) {
-    // LAB 3: Your code here:
-
     /* NOTE: find_function from kdebug.c should be used */
+
+    // find symtab and strtab:
+    uint8_t *symtable = NULL, *strtab = NULL;
+    size_t entry_size = 0, table_size = 0;
+    
+    struct Elf* e = (struct Elf*) binary;
+    uint8_t* sh_table = binary + e->e_shoff;
+    size_t sh_num = e->e_shnum;
+    size_t sh_ent_size = e->e_shentsize;
+
+    for(int i = 0; i < sh_num; i++) {
+        struct Secthdr* sh = (struct Secthdr*) (sh_table + i*sh_ent_size);
+
+        if(sh->sh_type == ELF_SHT_SYMTAB) {
+            symtable = binary + sh->sh_offset;
+            entry_size = sh->sh_entsize;
+            table_size = sh->sh_size;
+        }
+
+        if(sh->sh_type == ELF_SHT_STRTAB && !strtab) {
+            strtab = binary + sh->sh_offset;
+        }
+    }
+
+    if(symtable == NULL || strtab == NULL) {
+        return 0;   // no symtab
+    }
+    
+    for(uintptr_t curr = image_start; curr <= image_end - (sizeof(UINT64)/sizeof(*(uint8_t*)curr)); curr++) {
+        const char* symname = find_name(symtable, strtab, entry_size, table_size, (UINT64*)curr);
+        if(symname) {
+            uintptr_t new_addr = find_function(symname);
+            if(new_addr) {
+                *(UINT64*)curr = (UINT64)new_addr;
+            }
+        }
+    }
 
     return 0;
 }
@@ -219,8 +281,41 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
  *   What?  (See env_run() and env_pop_tf() below.) */
 static int
 load_icode(struct Env *env, uint8_t *binary, size_t size) {
-    // LAB 3: Your code here
+    uint8_t* elf_base = binary;
+    if(elf_base == NULL) {
+        return -E_INVALID_EXE;
+    }
 
+    struct Elf* file_header = (struct Elf*) elf_base;
+    if(file_header->e_magic != ELF_MAGIC) {
+        return -E_INVALID_EXE;
+    }
+
+    int prog_header_size = file_header->e_phentsize;
+    int number_of_headers = file_header->e_phnum;
+
+    uint8_t* curr_prog_header_base = file_header->e_phoff + elf_base;
+    for(int i = 0; i <= number_of_headers; i++) {
+        struct Proghdr* ph =(struct Proghdr*) curr_prog_header_base;
+        if(ph->p_type == ELF_PROG_LOAD) {
+            void* res = memset((void *)ph->p_va, 0, ph->p_memsz);
+            if(!res) {
+                return -E_INVALID_EXE;
+            }
+
+            res = memcpy((void *)ph->p_va, elf_base + ph->p_offset, ph->p_filesz);
+            if(!res) {
+                return -E_INVALID_EXE;
+            }    
+        
+            bind_functions(env, binary, size, (uintptr_t)ph->p_va, (uintptr_t)ph->p_va + ph->p_filesz);    
+        }
+        
+        curr_prog_header_base += prog_header_size;
+    }
+
+    env->binary = binary;
+    env->env_tf.tf_rip = file_header->e_entry;
     return 0;
 }
 
@@ -232,8 +327,16 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
  */
 void
 env_create(uint8_t *binary, size_t size, enum EnvType type) {
-    // LAB 3: Your code here
+    struct Env* allocated;
+    int res = env_alloc(&allocated, 0, type);
+    if(res != 0) {
+        return;
+    }
 
+    res = load_icode(allocated, binary, size);
+    if(res != 0) {
+        return;
+    }
 }
 
 
@@ -260,6 +363,10 @@ env_destroy(struct Env *env) {
     /* If env is currently running on other CPUs, we change its state to
      * ENV_DYING. A zombie environment will be freed the next time
      * it traps to the kernel. */
+    env_free(env);
+    if(curenv == env) {
+        sched_yield();
+    }
 
     // LAB 3: Your code here
 
@@ -353,7 +460,23 @@ env_run(struct Env *env) {
         cprintf("[%08X] env started: %s\n", env->env_id, state[env->env_status]);
     }
 
-    // LAB 3: Your code here
-
+    if(curenv) {
+        switch(curenv->env_status) {
+            case ENV_FREE:
+            case ENV_DYING:
+            case ENV_NOT_RUNNABLE:
+                curenv->env_status = ENV_NOT_RUNNABLE;
+                break;
+            case ENV_RUNNABLE:
+            case ENV_RUNNING:
+                curenv->env_status = ENV_RUNNABLE;   
+                break;
+        }
+    }
+    curenv = env;
+    curenv->env_status = ENV_RUNNING;
+    curenv->env_runs++;
+    env_pop_tf(&curenv->env_tf);
+     
     while(1) {}
 }
