@@ -9,6 +9,7 @@
 #include <inc/x86.h>
 
 #include <kern/console.h>
+#include <kern/picirq.h>
 
 #define COM1 0x3F8
 
