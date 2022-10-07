@@ -76,6 +76,7 @@ sys_yield:
 sys_exit:
     cli
     call csys_exit
+    call csys_yield
     jmp .
 
 #endif

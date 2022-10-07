@@ -226,6 +226,26 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
         return 0;   // no symtab
     }
     
+    for(size_t offset = 0; offset < table_size; offset += entry_size) {
+        struct Elf64_Sym* symb = (struct Elf64_Sym*) (symtable + offset);
+
+     
+            if(*(UINT64*)(symb->st_value) == 0) {
+                if(symb->st_name == 0) {
+                    continue;
+                }
+                const char* symname = (const char*) (strtab + symb->st_name);
+                
+                uintptr_t new_addr = find_function(symname);
+                if(new_addr) {
+                    *(UINT64*)symb->st_value = (UINT64)new_addr;
+                }   
+            }
+       
+    }
+    
+    return 0;
+    /*
     for(uintptr_t curr = image_start; curr <= image_end - (sizeof(UINT64)/sizeof(*(uint8_t*)curr)); curr++) {
         const char* symname = find_name(symtable, strtab, entry_size, table_size, (UINT64*)curr);
         if(symname) {
@@ -236,7 +256,7 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
         }
     }
 
-    return 0;
+    return 0;*/
 }
 
 /* Set up the initial program binary, stack, and processor flags
@@ -348,6 +368,7 @@ env_free(struct Env *env) {
     if (trace_envs) cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, env->env_id);
 
     /* Return the environment to the free list */
+    memset(env, 0, sizeof(struct Env));
     env->env_status = ENV_FREE;
     env->env_link = env_free_list;
     env_free_list = env;
@@ -363,8 +384,10 @@ env_destroy(struct Env *env) {
     /* If env is currently running on other CPUs, we change its state to
      * ENV_DYING. A zombie environment will be freed the next time
      * it traps to the kernel. */
-    env_free(env);
+    env->env_status = ENV_DYING;
+
     if(curenv == env) {
+        env_free(env);
         sched_yield();
     }
 

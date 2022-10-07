@@ -117,7 +117,7 @@ uintptr_t find_asm_name(const char* fname) {
     for(; symb < end; symb = symb + 1) {
         if(symb->st_name != 0) {
             if(!strcmp(fname, (const char*) (strtable + symb->st_name))) {
-                return (uintptr_t) &(symb->st_value);
+                return (uintptr_t) (symb->st_value);
             }
         }
     }
