@@ -92,10 +92,18 @@ trapname(int trapno) {
     return "(unknown trap)";
 }
 
+void clock_thdlr(void);
+
 void
 trap_init(void) {
     // LAB 4: Your code here
+    //uint64_t cs;
+    //asm volatile("movq %%cs,%0"
+      //           : "=r"(cs));
 
+    
+    idt[IRQ_OFFSET + IRQ_CLOCK] = GATE(0, GD_KT, &clock_thdlr, 0);
+    //memset(idt+2, 0, sizeof(struct Gatedesc));
 
     /* Per-CPU setup */
     trap_init_percpu();
@@ -204,7 +212,7 @@ trap_dispatch(struct Trapframe *tf) {
     switch (tf->tf_trapno) {
     case IRQ_OFFSET + IRQ_SPURIOUS:
         /* Handle spurious interrupts
-         * The hardware sometimes raises these because of noise on the
+-         * The hardware sometimes raises these because of noise on the
          * IRQ line or other reasons, we don't care */
         if (trace_traps) {
             cprintf("Spurious interrupt on irq 7\n");
@@ -213,6 +221,10 @@ trap_dispatch(struct Trapframe *tf) {
         return;
     case IRQ_OFFSET + IRQ_CLOCK:
         // LAB 4: Your code here
+        rtc_check_status();
+        pic_send_eoi(IRQ_CLOCK);
+        
+        sched_yield();
         return;
     default:
         print_trapframe(tf);
@@ -228,7 +240,7 @@ trap(struct Trapframe *tf) {
      * of GCC rely on DF being clear */
     asm volatile("cld" ::
                          : "cc");
-
+//    print_trapframe(tf);
     /* Halt the CPU if some other CPU has called panic() */
     extern char *panicstr;
     if (panicstr) asm volatile("hlt");
@@ -246,10 +258,12 @@ trap(struct Trapframe *tf) {
     /* Copy trap frame (which is currently on the stack)
      * into 'curenv->env_tf', so that running the environment
      * will restart at the trap point */
+    
     curenv->env_tf = *tf;
     /* The trapframe on the stack should be ignored from here on */
     tf = &curenv->env_tf;
-
+//    print_trapframe(tf);
+    
     /* Record that tf is the last real trapframe so
      * print_trapframe can print some additional information */
     last_tf = tf;

@@ -106,7 +106,7 @@ i386_init(void) {
     pic_init();
     rtc_timer_init();
     rtc_timer_pic_interrupt();
-
+    
     /* Framebuffer init should be done after memory init */
     fb_init();
     if (trace_init) cprintf("Framebuffer initialised\n");
@@ -115,7 +115,7 @@ i386_init(void) {
 
     /* User environment initialization functions */
     env_init();
-
+    //assert(false);
 #ifdef CONFIG_KSPACE
     /* Touch all you want */
     ENV_CREATE_KERNEL_TYPE(prog_test1);
