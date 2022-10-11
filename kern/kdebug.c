@@ -137,13 +137,13 @@ find_function(const char *const fname) {
     
     uintptr_t offset = 0;
 
-    int res = address_by_fname(&addrs, fname, &offset);
+    address_by_fname(&addrs, fname, &offset);
 
     if(offset != 0) {
         return offset;
     }
     
-    res = naive_address_by_fname(&addrs, fname, &offset);
+    naive_address_by_fname(&addrs, fname, &offset);
     if(offset != 0) {
         return offset;
     }

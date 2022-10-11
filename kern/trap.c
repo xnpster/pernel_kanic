@@ -97,11 +97,6 @@ void clock_thdlr(void);
 void
 trap_init(void) {
     // LAB 4: Your code here
-    //uint64_t cs;
-    //asm volatile("movq %%cs,%0"
-      //           : "=r"(cs));
-
-    
     idt[IRQ_OFFSET + IRQ_CLOCK] = GATE(0, GD_KT, &clock_thdlr, 0);
     //memset(idt+2, 0, sizeof(struct Gatedesc));
 
@@ -262,7 +257,6 @@ trap(struct Trapframe *tf) {
     curenv->env_tf = *tf;
     /* The trapframe on the stack should be ignored from here on */
     tf = &curenv->env_tf;
-//    print_trapframe(tf);
     
     /* Record that tf is the last real trapframe so
      * print_trapframe can print some additional information */
