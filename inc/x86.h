@@ -228,7 +228,7 @@ read_rsp(void) {
 static inline uint64_t __attribute__((always_inline))
 read_rip(void) {
     uint64_t rip;
-    asm volatile("call 1; 1: popq %0"
+    asm volatile("call 1f; 1: popq %0"
                  : "=r"(rip));
     return rip;
 }
