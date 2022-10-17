@@ -193,6 +193,13 @@ print_timer_error(void) {
 
 // LAB 5: Your code here:
 
+uint64_t pit_read_value(void) {
+    outb(PIT_IO_CMD, 0b01000000);
+    uint32_t val = inb(PIT_IO_CHANNEL_1);
+    val = (val << 8) & inb(PIT_IO_CHANNEL_1);
+    return val;
+}
+
 static bool timer_started = 0;
 static int timer_id = -1;
 static uint64_t timer = 0;
@@ -200,16 +207,38 @@ static uint64_t freq = 0;
 
 void
 timer_start(const char *name) {
-    (void)timer_started;
-    (void)timer_id;
-    (void)timer;
-    (void)freq;
+    timer_started = true;
+    for (int i = 0; i < MAX_TIMERS; i++) {
+        if (timertab[i].timer_name && !strcmp(timertab[i].timer_name, name)) {
+            timer_id = i;
+            timer_started = true;
+            timer = read_tsc();
+            freq = timertab[timer_id].get_cpu_freq();
+            return;
+        }
+    }
+
+    print_timer_error();
 }
 
 void
 timer_stop(void) {
+    if(!timer_started) {
+        print_timer_error();
+        return;
+    }
+    
+    timer_started = false;
+
+    print_time((read_tsc() - timer)/freq);
 }
 
 void
 timer_cpu_frequency(const char *name) {
+    for (int i = 0; i < MAX_TIMERS; i++) {
+        if (timertab[i].timer_name && !strcmp(timertab[i].timer_name, name)) {
+            cprintf("%lu\n", timertab[i].get_cpu_freq());
+            return;
+        }
+    }
 }

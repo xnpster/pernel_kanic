@@ -93,12 +93,15 @@ trapname(int trapno) {
     return "(unknown trap)";
 }
 
+
 void clock_thdlr(void);
+void timer_thdlr(void);
 
 void
 trap_init(void) {
-    idt[IRQ_OFFSET + IRQ_CLOCK] = GATE(0, GD_KT, &clock_thdlr, 0);
     // LAB 5: Your code here
+    idt[IRQ_OFFSET + IRQ_CLOCK] = GATE(0, GD_KT, &clock_thdlr, 0);
+    idt[IRQ_OFFSET + IRQ_TIMER] = GATE(0, GD_KT, &timer_thdlr, 0);
 
     /* Per-CPU setup */
     trap_init_percpu();
@@ -235,6 +238,7 @@ _Noreturn void
 trap(struct Trapframe *tf) {
     /* The environment may have set DF and some versions
      * of GCC rely on DF being clear */
+    cprintf("int\n");
     asm volatile("cld" ::
                          : "cc");
 //    print_trapframe(tf);
