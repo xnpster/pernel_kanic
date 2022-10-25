@@ -202,8 +202,8 @@ mon_dumpcmos(int argc, char **argv, struct Trapframe *tf) {
 // LAB 5: Your code here:
 int
 mon_start(int argc, char **argv, struct Trapframe *tf) {
-    if(argc != 2)
-        cprintf("required 1 argument\n");
+    //if(argc != 2)
+      //  cprintf("required 1 argument\n");
     timer_start(argv[1]);
     return 0;
 }
@@ -215,8 +215,8 @@ mon_stop(int argc, char **argv, struct Trapframe *tf) {
 }
 int
 mon_frequency(int argc, char **argv, struct Trapframe *tf) {
-     if(argc != 2)
-        cprintf("required 1 argument\n");
+     //if(argc != 2)
+       // cprintf("required 1 argument\n");
     
     timer_cpu_frequency(argv[1]);
     return 0;
