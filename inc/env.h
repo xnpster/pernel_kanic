@@ -46,6 +46,17 @@ enum EnvType {
     ENV_TYPE_USER,
 };
 
+struct List {
+    struct List *prev, *next;
+};
+
+struct AddressSpace {
+    pml4e_t *pml4;     /* Virtual address of pml4 */
+    uintptr_t cr3;     /* Physical address of pml4 */
+    struct Page *root; /* root node of address space tree */
+};
+
+
 struct Env {
     struct Trapframe env_tf; /* Saved registers */
     struct Env *env_link;    /* Next free Env */
@@ -56,6 +67,9 @@ struct Env {
     uint32_t env_runs;       /* Number of times environment has run */
 
     uint8_t *binary; /* Pointer to process ELF image in kernel memory */
+
+    /* Address space */
+    struct AddressSpace address_space;
 };
 
 #endif /* !JOS_INC_ENV_H */
