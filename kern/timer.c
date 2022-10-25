@@ -349,28 +349,36 @@ hpet_handle_interrupts_tim1(void) {
  * about pause instruction. */
 uint64_t
 hpet_cpu_frequency(void) {
-    static uint64_t cpu_freq;
-    
-    uint64_t old_tsc = read_tsc();
-    uint64_t femptosec_per_tick = (uint32_t) (hpetReg->GCAP_ID >> 32);
-    //femptosec = 10^-15 sec
-    
-    // millis_per_tick = femptosec_per_tick * 10^-12
-    // ticks_per_1500_ms = 1500/millis_per_tick = (1500/femptosec_per_tick) * 10^12
-    // = (15 * 10^14)/femptosec_per_tick = 3/2 * 1/femptosec_per_tick * 10^15
-
-    //uint64_t ticks_per_sec = Peta/femptosec_per_tick;
-    uint64_t old_cnt = hpet_get_main_cnt();
-    
-    for(int i = 0 ; i < 10000; i++)
-        asm volatile("pause");
-
-        
-    uint64_t fempto_secs = (hpet_get_main_cnt() - old_cnt)*femptosec_per_tick;
-    
-    cpu_freq = (read_tsc() - old_tsc) * (Peta/fempto_secs);
+    static uint64_t cpu_freq = 0;
 
     // LAB 5: Your code here
+    
+    if(cpu_freq == 0) {
+        uint64_t old_tsc = read_tsc();
+        uint64_t old_cnt = hpet_get_main_cnt();
+    
+        uint64_t femptosec_per_tick = 0xFFFFFFFF & (hpetReg->GCAP_ID >> 32);
+        uint64_t ticks_per_sec = Peta/femptosec_per_tick;
+        
+        bool is64 = (1 << 13) & hpetReg->GCAP_ID;
+    
+        int SEC_PART = 100; // count while 1/100 sec
+        int64_t diff = 0;
+        do {
+            asm("pause");
+            uint64_t curr = hpet_get_main_cnt();
+            
+            if(curr < old_cnt) {
+                //overflow
+                diff = is64 ? 0xFFFFFFFFFFFFFFFF : 0xFFFFFFFF;
+                diff = diff - old_cnt + curr;
+            } else {
+                diff = curr - old_cnt;
+            }
+        } while (diff < ticks_per_sec / SEC_PART);
+    
+        cpu_freq = (read_tsc() - old_tsc) * ticks_per_sec / diff;
+    }
 
     return cpu_freq;
 }
@@ -386,22 +394,29 @@ pmtimer_get_timeval(void) {
  *      can be 24-bit or 32-bit. */
 uint64_t
 pmtimer_cpu_frequency(void) {
-    static uint64_t cpu_freq;
+    static uint64_t cpu_freq = 0;
 
     // LAB 5: Your code here
     
-    uint64_t old_tsc = read_tsc();
-    
-    uint64_t old_cnt = pmtimer_get_timeval();
-    
-    for(int i = 0 ; i < 10000; i++)
-        asm volatile("pause");
-
+    if(cpu_freq == 0) {
+        bool is32 = (1 << 8) & get_fadt()->Flags;
+        int SEC_PART = 100; // count while 1/100 sec
+        uint64_t old_tsc = read_tsc();
+        uint64_t old_cnt = pmtimer_get_timeval();
+     
+        int64_t diff = 0; 
+        do {
+            asm("pause");
         
-    uint64_t fempto_secs = (hpet_get_main_cnt() - old_cnt)/PM_FREQ;
+            diff = pmtimer_get_timeval() - old_cnt;
+            if(diff < 0) {
+                //overflow
+                diff += is32 ? 0xFFFFFFFF : 0x00FFFFFF;
+            }
+        } while (diff < PM_FREQ / SEC_PART);
     
-    cpu_freq = (read_tsc() - old_tsc) * (Peta/fempto_secs);
-
+        cpu_freq = (read_tsc() - old_tsc) * PM_FREQ / diff;
+    }
 
     return cpu_freq;
 }
