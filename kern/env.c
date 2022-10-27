@@ -8,6 +8,7 @@
 #include <inc/elf.h>
 
 #include <kern/env.h>
+#include <kern/pmap.h>
 #include <kern/trap.h>
 #include <kern/monitor.h>
 #include <kern/sched.h>
