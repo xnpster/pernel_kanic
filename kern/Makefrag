@@ -49,6 +49,15 @@ KERN_SRCFILES += kern/payload.c
 .INTERMEDIATE: kern/payload.c
 endif
 
+ifdef KASAN
+KERN_SRCFILES +=	llvm/asan/asan.c \
+			llvm/asan/asan_internal.c \
+			llvm/asan/asan_memintrinsics.c \
+			llvm/asan/asan_platform.kjos.c \
+			llvm/asan/asan_prim.c \
+			llvm/asan/asan_used.c
+endif
+
 ifdef KUBSAN
 KERN_SRCFILES +=	llvm/ubsan/ubsan.c
 endif
@@ -127,6 +136,11 @@ $(OBJDIR)/kern/%.o: lib/%.c $(OBJDIR)/.vars.KERN_CFLAGS
 	@echo + cc $<
 	@mkdir -p $(@D)
 	$(V)$(CC) $(KERN_CFLAGS) $(KERN_SAN_CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/llvm/asan/%.o: llvm/asan/%.c $(OBJDIR)/.vars.KERN_CFLAGS
+	@echo + cc $<
+	@mkdir -p $(@D)
+	$(V)$(CC) -ffreestanding $(KERN_CFLAGS) $(KERN_SAN_CFLAGS) -c -o $@ $<
 
 $(OBJDIR)/llvm/ubsan/%.o: llvm/ubsan/%.c $(OBJDIR)/.vars.KERN_CFLAGS
 	@echo + $(CC) $<
