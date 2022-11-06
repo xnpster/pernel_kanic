@@ -198,7 +198,7 @@ alloc_child(struct Page *parent, bool right) {
     child->class = parent->class - 1;
     child->addr = parent->addr;
     if(right)
-        child->addr += (1ULL << child->class);
+        child->addr += CLASS_SIZE(child->class) >> CLASS_BASE;
 
     return child;
 }
@@ -359,7 +359,7 @@ attach_region(uintptr_t start, uintptr_t end, enum PageState type) {
                 break;
             }
 
-            if(page_lookup(NULL, start, class, type, 0)) {
+            if(page_lookup(NULL, start, class, ALLOCATABLE_NODE, 0)) {
                 break;
             }
         }
@@ -486,15 +486,15 @@ dump_memory_lists(void) {
     for (int c = 0; c < MAX_CLASS; c++) {
         if(free_classes[c].next != &free_classes[c])
         {
-            cprintf("%2d      ", c);
+            cprintf("%2d %08lX      ", c, (unsigned long)CLASS_SIZE(c));
             
             int count = 1;
             struct List* curr;
             for (curr = free_classes[c].next; curr != &free_classes[c]; curr = curr->next) {
                 struct Page* peer = (struct Page *)curr;
-                cprintf("%08lX ", (unsigned long)peer->addr << c);
+                cprintf("%08lX ", (unsigned long)peer->addr << CLASS_BASE);
                 if (count % 8 == 0) {
-                    cprintf("\n        ");
+                    cprintf("\n                 ");
                 }
             
                 count++;
