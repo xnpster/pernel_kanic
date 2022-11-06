@@ -32,6 +32,8 @@ int mon_start(int argc, char **argv, struct Trapframe *tf);
 int mon_stop(int argc, char **argv, struct Trapframe *tf);
 int mon_frequency(int argc, char **argv, struct Trapframe *tf);
 int mon_memory(int argc, char **argv, struct Trapframe *tf);
+int mon_pagetable(int argc, char **argv, struct Trapframe *tf);
+int mon_virt(int argc, char **argv, struct Trapframe *tf);
 
 struct Command {
     const char *name;
@@ -234,6 +236,10 @@ int mon_memory(int argc, char **argv, struct Trapframe *tf) {
         dump_memory_lists();
             return 0;
 }
+
+/* Implement mon_pagetable() and mon_virt()
+ * (using dump_virtual_tree(), dump_page_table())*/
+// LAB 7: Your code here
 
 /* Kernel monitor command interpreter */
 

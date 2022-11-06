@@ -14,6 +14,7 @@
 #include <kern/sched.h>
 #include <kern/kdebug.h>
 #include <kern/macro.h>
+#include <kern/pmap.h>
 #include <kern/traceopt.h>
 
 /* Currently active environment */

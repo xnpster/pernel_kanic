@@ -85,7 +85,8 @@ struct Page {
     union {
         struct /* physical page */ {
             /* Number of references
-             * TODO Write about parents */
+             * Child nodes always have class
+             * smaller by 1 than their parents */
             uint32_t refc;
             uintptr_t class : CLASS_BASE;                        /* = log2(size)-CLASS_BASE */
             uintptr_t addr : sizeof(uintptr_t) * 8 - CLASS_BASE; /* = address >> CLASS_BASE */

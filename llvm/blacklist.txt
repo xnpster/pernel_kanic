@@ -1,0 +1,14 @@
+# This is required for basic initialisation for KASAN itself
+fun:unpoison_meta
+fun:invoke_ctors
+fun:init_memory
+fun:alloc_pd_early_boot
+fun:map_addr_early_boot
+fun:map_shadow_early_boot
+fun:early_boot_pml4_init
+fun:i386_init
+fun:_panic
+fun:mon_backtrace
+
+# KASAN itself should not be instrumented
+src:llvm/asan/*
