@@ -190,6 +190,50 @@ KERN_SAN_CFLAGS += -fsanitize=undefined \
 
 endif
 
+USER_SAN_CFLAGS :=
+USER_SAN_LDFLAGS :=
+
+ifdef UASAN
+
+CFLAGS += -DSAN_ENABLE_UASAN
+
+# The definitions assume user base address at 0x0, see user/user.ld for details.
+# SANITIZE_SHADOW_SIZE 32 MB allows 256 MB of addressible memory (due to byte granularity).
+# Extra page (+0x1000 to offset) avoids an optimisation via 'or' that assumes that unsigned wrap-around is impossible.
+
+USER_SAN_CFLAGS := -fsanitize=address -fsanitize-blacklist=llvm/ublacklist.txt -mllvm
+USER_SAN_CFLAGS += $(shell sed -n 's/^\#define SANITIZE_USER_SHADOW_BASE \(.*\)/ -asan-mapping-offset=\1 /p' inc/memlayout.h)
+
+USER_SAN_LDFLAGS := --wrap memcpy  \
+	--wrap memset  \
+	--wrap memmove \
+	--wrap bcopy   \
+	--wrap bzero   \
+	--wrap bcmp    \
+	--wrap memcmp  \
+	--wrap strcat  \
+	--wrap strcpy  \
+	--wrap strlcpy \
+	--wrap strncpy \
+	--wrap strlcat \
+	--wrap strncat \
+	--wrap strnlen \
+	--wrap strlen
+
+endif
+
+ifdef UUBSAN
+
+CFLAGS += -DSAN_ENABLE_UUBSAN
+
+USER_SAN_CFLAGS += -fsanitize=undefined \
+	-fsanitize=implicit-integer-truncation \
+	-fno-sanitize=function \
+	-fno-sanitize=vptr \
+	-fno-sanitize=return
+
+endif
+
 ifdef GRADE3_TEST
 CFLAGS += -DGRADE3_TEST=$(GRADE3_TEST)
 CFLAGS += -DGRADE3_FUNC=$(GRADE3_FUNC)

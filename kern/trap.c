@@ -8,6 +8,7 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/env.h>
+#include <kern/syscall.h>
 #include <kern/sched.h>
 #include <kern/kclock.h>
 #include <kern/picirq.h>
@@ -98,6 +99,17 @@ void
 trap_init(void) {
     // LAB 4: Your code here
     // LAB 5: Your code here
+
+
+    /* Insert trap handlers into IDT */
+    // LAB 8: Your code here
+
+    /* Setup #PF handler dedicated stack
+     * It should be switched on #PF because
+     * #PF is the only kind of exception that
+     * can legally happen during normal kernel
+     * code execution */
+    idt[T_PGFLT].gd_ist = 1;
 
     /* Per-CPU setup */
     trap_init_percpu();
@@ -204,6 +216,19 @@ print_regs(struct PushRegs *regs) {
 static void
 trap_dispatch(struct Trapframe *tf) {
     switch (tf->tf_trapno) {
+    case T_SYSCALL:
+        tf->tf_regs.reg_rax = syscall(
+                tf->tf_regs.reg_rax,
+                tf->tf_regs.reg_rdx,
+                tf->tf_regs.reg_rcx,
+                tf->tf_regs.reg_rbx,
+                tf->tf_regs.reg_rdi,
+                tf->tf_regs.reg_rsi,
+                tf->tf_regs.reg_r8);
+        return;
+    case T_BRKPT:
+        // LAB 8: Your code here
+        return;
     case IRQ_OFFSET + IRQ_SPURIOUS:
         /* Handle spurious interrupts
          * The hardware sometimes raises these because of noise on the
@@ -226,6 +251,9 @@ trap_dispatch(struct Trapframe *tf) {
     }
 }
 
+/* We do not support recursive page faults in-kernel */
+bool in_page_fault;
+
 _Noreturn void
 trap(struct Trapframe *tf) {
     /* The environment may have set DF and some versions
@@ -244,6 +272,49 @@ trap(struct Trapframe *tf) {
 
     if (trace_traps) cprintf("Incoming TRAP[%ld] frame at %p\n", tf->tf_trapno, tf);
     if (trace_traps_more) print_trapframe(tf);
+
+    /* #PF should be handled separately */
+    if (tf->tf_trapno == T_PGFLT) {
+        assert(current_space);
+        assert(!in_page_fault);
+        in_page_fault = 1;
+
+        uintptr_t va = rcr2();
+
+#if defined(SANITIZE_USER_SHADOW_BASE) && LAB == 8
+        /* NOTE: Hack!
+         * This is an early user address sanitizer memory allocation
+         * hook until proper memory allocation syscalls
+         * and userspace pagefault handlers are implemented */
+        if ((tf->tf_err & ~FEC_W) == FEC_U && curenv && SANITIZE_USER_SHADOW_BASE <= va &&
+            va < SANITIZE_USER_SHADOW_BASE + SANITIZE_USER_SHADOW_SIZE) {
+            int res = map_region(&curenv->address_space, ROUNDDOWN(va, PAGE_SIZE),
+                                 NULL, 0, PAGE_SIZE, ALLOC_ONE | PROT_R | PROT_W | PROT_USER_);
+            assert(!res);
+        }
+#endif
+
+        /* If #PF was caused by write it can be lazy copying/allocation (fast path)
+         * It is required to be handled here because of in-kernel page faults
+         * which can happen with curenv == NULL */
+
+        /* Read processor's CR2 register to find the faulting address */
+        int res = force_alloc_page(current_space, va, MAX_ALLOCATION_CLASS);
+        if (trace_pagefaults) {
+            bool can_redir = false;
+            cprintf("<%p> Page fault ip=%08lX va=%08lX err=%c%c%c%c%c -> %s\n", current_space, tf->tf_rip, va,
+                    tf->tf_err & FEC_P ? 'P' : '-',
+                    tf->tf_err & FEC_U ? 'U' : '-',
+                    tf->tf_err & FEC_W ? 'W' : '-',
+                    tf->tf_err & FEC_R ? 'R' : '-',
+                    tf->tf_err & FEC_I ? 'I' : '-',
+                    res ? can_redir ? "redirected to user" : "fault" : "resolved by kernel");
+        }
+        if (!res) {
+            in_page_fault = 0;
+            env_pop_tf(tf);
+        }
+    }
 
     assert(curenv);
 
