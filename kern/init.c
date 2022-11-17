@@ -23,9 +23,9 @@ void
 timers_init(void) {
     timertab[0] = timer_rtc;
     timertab[1] = timer_pit;
-    timertab[2] = timer_acpipm;
-    timertab[3] = timer_hpet0;
-    timertab[4] = timer_hpet1;
+//    timertab[2] = timer_acpipm;
+//    timertab[3] = timer_hpet0;
+//    timertab[4] = timer_hpet1;
 
     for (int i = 0; i < MAX_TIMERS; i++) {
         if (timertab[i].timer_init) {

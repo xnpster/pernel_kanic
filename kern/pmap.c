@@ -759,7 +759,15 @@ memcpy_page(struct AddressSpace *dst, uintptr_t va, struct Page *page) {
     assert(current_space);
     assert(dst);
 
-    // LAB 7: Your code here
+    struct AddressSpace *old = switch_address_space(dst);
+    
+    set_wp(0);
+
+    nosan_memcpy((void *)va, KADDR(page2pa(page)), CLASS_SIZE(page->class));
+
+    set_wp(1);
+    
+    switch_address_space(old);
 }
 
 static void
@@ -843,8 +851,6 @@ unmap_page(struct AddressSpace *spc, uintptr_t addr, int class) {
 
     // LAB 7: Your code here
 
-    size_t pdi0 = 0, pdi1 = 0;
-
     /* Return if page is not present or
      * split 2*MB page into 4KB pages if required.
      * Then load apporopriate page table kernel virutal address
@@ -855,8 +861,37 @@ unmap_page(struct AddressSpace *spc, uintptr_t addr, int class) {
 
     // LAB 7: Your code here
 
-    (void)pdi1, (void)pdi0;
-    pte_t *pt = NULL;
+    size_t pdi0 = PD_INDEX(addr), pdi1 = PD_INDEX(end);
+
+    /* Fixup index if pdi0 == 511 and pdi1 == 0 (and should be 512) */
+    if (pdi0 > pdi1) pdi1 = PD_ENTRY_COUNT;
+
+    /* Unmap 2*MB hardware page if size of virtual page
+     * is >= than 2*MB */
+
+    if (class >= 9) {
+        remove_pt(pd, addr, 2 * MB, pdpi0, pdpi1);
+        goto finish;
+    }
+
+    /* If page is not present don't need to do anything */
+
+    if (!(pd[pdi0] & PTE_P))
+        return;
+    /* otherwise we need to split 2*MB page hw page
+     * into smaller 4*KB pages, allocting new page table level */
+    else if (pd[pdi0] & PTE_PS) {
+        pde_t old = pd[pdi0];
+        res = alloc_pt(pd + pdi0);
+        assert(!res);
+        pte_t *pt = KADDR(PTE_ADDR(pd[pdi0]));
+        res = alloc_fill_pt(pt, old & ~PTE_PS, 4 * KB, 0, PT_ENTRY_COUNT);
+
+        inval_start = ROUNDDOWN(inval_start, 2 * MB);
+        inval_end = ROUNDUP(inval_end, 2 * MB);
+        assert(!res);
+    }
+    pte_t *pt = KADDR(PTE_ADDR(pd[pdi0]));
 
     /* Unmap 4KB hw pages */
     size_t pti0 = PT_INDEX(addr), pti1 = PT_INDEX(end);
@@ -948,18 +983,27 @@ map_page(struct AddressSpace *spc, uintptr_t addr, struct Page *page, int flags)
 
     // LAB 7: Your code here
 
-    (void)pd;
-    size_t pdi0 = 0, pdi1 = 0;
+    size_t pdi0 = PD_INDEX(addr), pdi1 = PD_INDEX(end);
+    /* Fixup index if pdi0 == 511 and pdi1 == 0 (and should be 512) */
+    if (pdi0 > pdi1) pdi1 = PD_ENTRY_COUNT;
+    /* Fill PD range if page size is larger than 2MB */
+    if (page->class >= 9) return alloc_fill_pt(pd, base, 2 * MB, pdi0, pdi1);
+
+    /* Allocate empty pt... */ 
+    if (!(pd[pdi0] & PTE_P) && alloc_pt(pd + pdi0) < 0) return -E_NO_MEM;
+    /* ...or split 2MB page into 4KB pages if required */
+    else if (pd[pdi0] & PTE_PS) {
+        pde_t old = pd[pdi0];
+        if (alloc_pt(pd + pdi0) < 0) return -E_NO_MEM;
+        pte_t *pt = KADDR(PTE_ADDR(pd[pdi0]));
+        if (alloc_fill_pt(pt, old & ~PTE_PS, 4 * KB, 0, PT_ENTRY_COUNT) < 0) return -E_NO_MEM;
+    }
+    pte_t *pt = KADDR(PTE_ADDR(pd[pdi0]));
 
     /* Allocate empty pt or split 2MB page into 4KB pages if required and
      * calculate virtual address into pt.
      * alloc_pt(), alloc_fill_pt() are used here.
      * TIP: Look at the code above doing the same thing for 1GB pages */
-
-    // LAB 7: Your code here
-
-    (void)pdi0, (void)pdi1;
-    pte_t *pt = NULL;
 
     /* If requested region is larger than or equal to 4KB (at least one whole page) */
 
@@ -1433,7 +1477,13 @@ struct AddressSpace *
 switch_address_space(struct AddressSpace *space) {
     assert(space);
     ///LAB 7: Your code here
-    return NULL;
+    if(current_space == space) {
+        return current_space;
+    }
+    struct AddressSpace * old = current_space;
+    current_space = space;
+    lcr3(current_space->cr3);
+    return old;
 }
 
 /* Buffers for filler pages are statically allocated for simplicity
@@ -1690,7 +1740,8 @@ init_memory(void) {
     // LAB 7: Your code here
     // NOTE: You need to check if map_physical_region returned 0 everywhere! (and panic otherwise)
     // Map [0, max_memory_map_addr] to [KERN_BASE_ADDR, KERN_BASE_ADDR + max_memory_map_addr] as RW- + ALLOC_WEAK
-
+    if (map_physical_region(&kspace, KERN_BASE_ADDR, 0, max_memory_map_addr - 0, PROT_R | PROT_W | ALLOC_WEAK) < 0)
+        panic("Cannot map physical region at %p of size %zd", (void *)KERN_BASE_ADDR, max_memory_map_addr - 0);
 
     extern char __text_end[], __text_start[];
     assert(!((uintptr_t)__text_start & CLASS_MASK(0)));
@@ -1701,18 +1752,25 @@ init_memory(void) {
 
     // LAB 7: Your code here
     // Map [PADDR(__text_start);PADDR(__text_end)] to [__text_start, __text_end] as RW-
-
+    if (map_physical_region(&kspace, (uintptr_t)__text_start, PADDR(__text_start), PADDR(__text_end) - PADDR(__text_start), PROT_RWX) < 0)
+        panic("Cannot map physical region at %p of size %zd", (void *)__text_start, PADDR(__text_end) - PADDR(__text_start));
 
     /* Allocate kernel stacks */
 
     // LAB 7: Your code here
     // Map [PADDR(bootstack), PADDR(bootstack) + KERN_STACK_SIZE] to [KERN_STACK_TOP - KERN_STACK_SIZE, KERN_STACK_TOP] as RW-
+    
+    if (map_physical_region(&kspace, KERN_STACK_TOP - KERN_STACK_SIZE, PADDR(bootstack), KERN_STACK_SIZE, PROT_R | PROT_W) < 0)
+        panic("Cannot map physical region at %p of size %zd", (void *)KERN_STACK_TOP - KERN_STACK_SIZE, (size_t)KERN_STACK_SIZE);
+
     // Map [PADDR(pfstack), PADDR(pfstack) + KERN_PF_STACK_SIZE] to [KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE, KERN_PF_STACK_TOP] as RW-
+    if (map_physical_region(&kspace, KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE, PADDR(pfstack), KERN_PF_STACK_SIZE, PROT_R | PROT_W) < 0)
+        panic("Cannot map physical region at %p of size %zd", (void *)(KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE), (size_t)KERN_PF_STACK_SIZE);
 
 #ifdef SANITIZE_SHADOW_BASE
     init_shadow_pre();
 #endif
-
+    
     EFI_MEMORY_DESCRIPTOR *mstart = (void *)uefi_lp->MemoryMap;
     EFI_MEMORY_DESCRIPTOR *mend = (void *)((uint8_t *)mstart + uefi_lp->MemoryMapSize);
     for (; mstart < mend; mstart = (void *)((uint8_t *)mstart + uefi_lp->MemoryMapDescriptorSize)) {
@@ -1720,6 +1778,14 @@ init_memory(void) {
             // LAB 7: Your code here
             // Map [mstart->PhysicalStart, mstart->PhysicalStart+mstart->NumberOfPages*PAGE_SIZE] to
             //     [mstart->VirtualStart, mstart->VirtualStart+mstart->NumberOfPages*PAGE_SIZE] as RW-
+            if (map_physical_region(
+                        &kspace, 
+                        mstart->VirtualStart, 
+                        mstart->PhysicalStart, 
+                        mstart->NumberOfPages*PAGE_SIZE, 
+                        PROT_R | PROT_W) < 0)
+                panic("Cannot map physical region at %p of size %zd", 
+                        (void *)mstart->VirtualStart, (size_t)(mstart->NumberOfPages*PAGE_SIZE));
         }
     }
 
@@ -1742,7 +1808,7 @@ init_memory(void) {
     for (size_t i = 0; i < CLASS_SIZE(MAX_ALLOCATION_CLASS); i++) assert(!zero_page_raw[i]);
 
     switch_address_space(&kspace);
-
+    cprintf("here2\n");
     /* One page is a page filled with 0xFF values -- ASAN poison */
     nosan_memset(one_page_raw, 0xFF, CLASS_SIZE(MAX_ALLOCATION_CLASS));
 
@@ -1776,14 +1842,59 @@ init_memory(void) {
     // LAB 7: Your code here
     // Map [FRAMEBUFFER, FRAMEBUFFER + uefi_lp->FrameBufferSize] to
     //     [uefi_lp->FrameBufferBase, uefi_lp->FrameBufferBase + uefi_lp->FrameBufferSize] RW- + PROT_WC
+    if (map_physical_region(
+            &kspace, 
+            FRAMEBUFFER, 
+            uefi_lp->FrameBufferBase, 
+            uefi_lp->FrameBufferSize, 
+            PROT_R | PROT_W | PROT_WC) < 0)
+        panic("Cannot map physical region at %p of size %zd", 
+                (void *)(uefi_lp->FrameBufferBase), (size_t)(uefi_lp->FrameBufferSize));
+    
     // Map [X86ADDR(KERN_BASE_ADDR),MIN(MAX_LOW_ADDR_KERN_SIZE, max_memory_map_addr)] to
     //     [0, MIN(MAX_LOW_ADDR_KERN_SIZE, max_memory_map_addr)] as RW + ALLOC_WEAK
+    if (map_physical_region(
+            &kspace, 
+            X86ADDR(KERN_BASE_ADDR), 
+            0, 
+            MIN(MAX_LOW_ADDR_KERN_SIZE, max_memory_map_addr), 
+            PROT_R | PROT_W | ALLOC_WEAK) < 0)
+        panic("Cannot map physical region at %p of size %zd", 
+                (void *)0, MIN(MAX_LOW_ADDR_KERN_SIZE, max_memory_map_addr) - X86ADDR(KERN_BASE_ADDR));
+
     // Map [X86ADDR((uintptr_t)__text_start),ROUNDUP(X86ADDR((uintptr_t)__text_end), CLASS_SIZE(0))] to
     //     [PADDR(__text_start), ROUNDUP(__text_end, CLASS_SIZE(0))] as R-X
+    if (map_physical_region(
+            &kspace, 
+            X86ADDR((uintptr_t)__text_start), 
+            PADDR(__text_start), 
+            ROUNDUP(X86ADDR((uintptr_t)__text_end), CLASS_SIZE(0)) - X86ADDR((uintptr_t)__text_start), 
+            PROT_R | PROT_X) < 0)
+        panic("Cannot map physical region at %p of size %zd", 
+                (void *)PADDR(__text_start), ROUNDUP(X86ADDR((uintptr_t)__text_end), CLASS_SIZE(0)) - X86ADDR((uintptr_t)__text_start));
+
     // Map [X86ADDR(KERN_STACK_TOP - KERN_STACK_SIZE), KERN_STACK_TOP] to
     //     [PADDR(bootstack), PADDR(boottop)] as RW-
+    if (map_physical_region(
+            &kspace, 
+            X86ADDR(KERN_STACK_TOP - KERN_STACK_SIZE), 
+            PADDR(bootstack), 
+            PADDR(bootstacktop) - PADDR(bootstack), 
+            PROT_R | PROT_W) < 0)
+        panic("Cannot map physical region at %p of size %zd", 
+                (void *)PADDR(bootstack), (size_t)(PADDR(bootstacktop) - PADDR(bootstack)));
+
     // Map [X86ADDR(KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE), KERN_PF_STACK_TOP] to
     //     [PADDR(pfstack), PADDR(pfstacktop)] as RW-
+
+    if (map_physical_region(
+            &kspace, 
+            X86ADDR(KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE), 
+            PADDR(pfstack), 
+            PADDR(pfstacktop) - PADDR(pfstack), 
+            PROT_R | PROT_W) < 0)
+        panic("Cannot map physical region at %p of size %zd", 
+                (void *)PADDR(pfstack),(size_t) (PADDR(pfstacktop) - PADDR(pfstack)));
 
     if (trace_memory_more) dump_page_table(kspace.pml4);
 
