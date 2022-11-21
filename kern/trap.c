@@ -64,6 +64,8 @@ struct Segdesc32 gdt[2 * NCPU + 7] = {
 
 struct Pseudodesc gdt_pd = {sizeof(gdt) - 1, (unsigned long)gdt};
 
+static _Noreturn void page_fault_handler(struct Trapframe *tf);
+
 static const char *
 trapname(int trapno) {
     static const char *const excnames[] = {
@@ -226,6 +228,10 @@ trap_dispatch(struct Trapframe *tf) {
                 tf->tf_regs.reg_rsi,
                 tf->tf_regs.reg_r8);
         return;
+    case T_PGFLT:
+        /* Handle processor exceptions. */
+        // LAB 9: Your code here.
+        return;
     case T_BRKPT:
         // LAB 8: Your code here
         return;
@@ -301,7 +307,7 @@ trap(struct Trapframe *tf) {
         /* Read processor's CR2 register to find the faulting address */
         int res = force_alloc_page(current_space, va, MAX_ALLOCATION_CLASS);
         if (trace_pagefaults) {
-            bool can_redir = false;
+            bool can_redir = tf->tf_err & FEC_U && curenv && curenv->env_pgfault_upcall;
             cprintf("<%p> Page fault ip=%08lX va=%08lX err=%c%c%c%c%c -> %s\n", current_space, tf->tf_rip, va,
                     tf->tf_err & FEC_P ? 'P' : '-',
                     tf->tf_err & FEC_U ? 'U' : '-',
@@ -339,4 +345,73 @@ trap(struct Trapframe *tf) {
         env_run(curenv);
     else
         sched_yield();
+}
+
+static _Noreturn void
+page_fault_handler(struct Trapframe *tf) {
+    // LAB 9: Your code here:
+
+    uintptr_t cr2 = rcr2();
+    (void)cr2;
+
+    /* Handle kernel-mode page faults. */
+    if (!(tf->tf_err & FEC_U)) {
+        print_trapframe(tf);
+        panic("Kernel pagefault\n");
+    }
+
+    /* We've already handled kernel-mode exceptions, so if we get here,
+     * the page fault happened in user mode.
+     *
+     * Call the environment's page fault upcall, if one exists.  Set up a
+     * page fault stack frame on the user exception stack (below
+     * USER_EXCEPTION_STACK_TOP), then branch to curenv->env_pgfault_upcall.
+     *
+     * The page fault upcall might cause another page fault, in which case
+     * we branch to the page fault upcall recursively, pushing another
+     * page fault stack frame on top of the user exception stack.
+     *
+     * The trap handler needs one word of scratch space at the top of the
+     * trap-time stack in order to return.  In the non-recursive case, we
+     * don't have to worry about this because the top of the regular user
+     * stack is free.  In the recursive case, this means we have to leave
+     * an extra word between the current top of the exception stack and
+     * the new stack frame because the exception stack _is_ the trap-time
+     * stack.
+     *
+     * If there's no page fault upcall, the environment didn't allocate a
+     * page for its exception stack or can't write to it, or the exception
+     * stack overflows, then destroy the environment that caused the fault.
+     * Note that the grade script assumes you will first check for the page
+     * fault upcall and print the "user fault va" message below if there is
+     * none.  The remaining three checks can be combined into a single test.
+     *
+     * Hints:
+     *   user_mem_assert() and env_run() are useful here.
+     *   To change what the user environment runs, modify 'curenv->env_tf'
+     *   (the 'tf' variable points at 'curenv->env_tf'). */
+
+
+    static_assert(UTRAP_RIP == offsetof(struct UTrapframe, utf_rip), "UTRAP_RIP should be equal to RIP offset");
+    static_assert(UTRAP_RSP == offsetof(struct UTrapframe, utf_rsp), "UTRAP_RSP should be equal to RSP offset");
+
+
+    /* Force allocation of exception stack page to prevent memcpy from
+     * causing pagefault during another pagefault */
+    // LAB 9: Your code here:
+
+    /* Assert existance of exception stack using user mem assert */
+    // LAB 9: Your code here:
+
+    /* Build local copy of UTrapframe */
+    // LAB 9: Your code here:
+
+    /* And then copy it userspace (nosan_memcpy) */
+    // LAB 9: Your code here:
+
+    /* Reset in_page_fault flag */
+    // LAB 9: Your code here:
+
+    /* Rerun current environment */
+    // LAB 9: Your code here:
 }
