@@ -1,0 +1,16 @@
+# This is required for basic initialisation for UASAN itself
+fun:libmain
+
+# UASAN itself should not be instrumented
+src:llvm/asan/*
+
+# Don't sanitize UVPT accesses
+# to reduce memory consumption
+src:lib/uvpt.c
+
+# Allow ASAN to allocate memory from itself and
+# handle pagefaults without crashing
+fun:sys_alloc_region
+fun:sys_env_set_pgfault_upcall
+fun:_handle_vectored_pagefault
+fun:add_pgfault_handler
