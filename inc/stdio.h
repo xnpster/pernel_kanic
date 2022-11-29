@@ -23,6 +23,11 @@ int vsnprintf(char *str, size_t size, const char *fmt, va_list) __attribute__((f
 int cprintf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 int vcprintf(const char *fmt, va_list) __attribute__((format(printf, 1, 0)));
 
+/* lib/fprintf.c */
+int printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+int fprintf(int fd, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+int vfprintf(int fd, const char *fmt, va_list);
+
 /* lib/readline.c */
 char *readline(const char *prompt);
 
