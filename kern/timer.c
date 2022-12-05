@@ -131,6 +131,7 @@ hpet_register(void) {
 void
 hpet_print_struct(void) {
     HPET *hpet = get_hpet();
+    assert(hpet != NULL);
     cprintf("signature = %s\n", (hpet->h).Signature);
     cprintf("length = %08x\n", (hpet->h).Length);
     cprintf("revision = %08x\n", (hpet->h).Revision);
