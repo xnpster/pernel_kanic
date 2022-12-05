@@ -1400,7 +1400,7 @@ __attribute__((aligned(HUGE_PAGE_SIZE))) uint8_t one_page_raw[HUGE_PAGE_SIZE];
 
 /*
  * This function initialized phyisical memory tree
- * with either UEFI memroy map or CMOS contents.
+ * with either UEFI memory map or CMOS contents.
  * Every region is inserted into the tree using
  * attach_region() function.
  */
