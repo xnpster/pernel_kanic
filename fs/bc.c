@@ -37,11 +37,11 @@ bc_pgfault(struct UTrapframe *utf) {
 }
 
 /* Flush the contents of the block containing VA out to disk if
- * necessary, then clear the PTE_D bit using sys_page_map.
+ * necessary, then clear the PTE_D bit using sys_map_region.
  * If the block is not in the block cache or is not dirty, does
  * nothing.
  * Hint: Use is_page_present, is_page_dirty, and ide_write.
- * Hint: Use the PTE_SYSCALL constant when calling sys_page_map.
+ * Hint: Use the PTE_SYSCALL constant when calling sys_map_region.
  * Hint: Don't forget to round addr down. */
 void
 flush_block(void *addr) {
