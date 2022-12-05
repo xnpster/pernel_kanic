@@ -1637,7 +1637,7 @@ init_memory(void) {
      * and KASAN shadow memory regions to new kernel address space.
      * Allocated memory should not be touches until address space switch */
 
-    /* Map physical memroy onto kernel address space weakly... */
+    /* Map physical memory onto kernel address space weakly... */
     /* NOTE We cannot use map_region to map memory allocated with ALLOC_WEAK */
 
     // LAB 7: Your code here
