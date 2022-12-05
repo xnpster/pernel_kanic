@@ -311,6 +311,9 @@ serial_init(void) {
     serial_exists = (inb(COM1 + COM_LSR) != 0xFF);
     (void)inb(COM1 + COM_IIR);
     (void)inb(COM1 + COM_RX);
+
+    /* Enable serial interrupts */
+    if (serial_exists) pic_irq_unmask(IRQ_SERIAL);
 }
 
 /* Parallel port output code */
@@ -479,7 +482,9 @@ kbd_intr(void) {
 
 static void
 kbd_init(void) {
-    /* nothing */
+    /* Drain the kbd buffer so that Bochs generates interrupts. */
+    kbd_intr();
+    pic_irq_unmask(IRQ_KBD);
 }
 
 /* General device-independent console code

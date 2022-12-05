@@ -24,6 +24,7 @@ LIB_SRCFILES :=		$(LIB_SRCFILES) \
 			lib/fd.c \
 			lib/file.c \
 			lib/fprintf.c \
+			lib/spawn.c \
 			lib/pipe.c \
 			lib/wait.c \
 			lib/uvpt.c
