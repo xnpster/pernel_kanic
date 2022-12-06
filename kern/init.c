@@ -148,7 +148,7 @@ i386_init(void) {
     rtc_timer_init();
     //remove
     //rtc_timer_pic_interrupt();
-    timers_init();    
+    // timers_init();    
     /* Framebuffer init should be done after memory init */
     fb_init();
     if (trace_init) cprintf("Framebuffer initialised\n");
@@ -157,8 +157,8 @@ i386_init(void) {
     env_init();
     
     /* Choose the timer used for scheduling: hpet or pit */
-    timers_schedule("rtc");
-    assert(false);
+    // timers_schedule("rtc");
+    // assert(false);
 #ifdef CONFIG_KSPACE
     /* Touch all you want */
     ENV_CREATE_KERNEL_TYPE(prog_test1);
