@@ -29,6 +29,8 @@ static const char *const error_string[MAXERROR] = {
         [E_INVALID_EXE] = "invalid ELF image",
         [E_NO_ENT] = "entry not found",
         [E_NO_SYS] = "no such system call",
+        [E_IPC_NOT_RECV] = "env is not recving",
+        [E_EOF] = "unexpected end of file",
 };
 
 /*

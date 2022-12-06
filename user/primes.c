@@ -1,0 +1,50 @@
+/* Concurrent version of prime sieve of Eratosthenes.
+ * Invented by Doug McIlroy, inventor of Unix pipes.
+ * See http://swtch.com/~rsc/thread/.
+ * The picture halfway down the page and the text surrounding it
+ * explain what's going on here.
+ *
+ * Since NENVS is 1024, we can print 1022 primes before running out.
+ * The remaining two environments are the integer generator at the bottom
+ * of main and user/idle. */
+
+#include <inc/lib.h>
+
+unsigned
+primeproc(void) {
+    int i, id, p;
+    envid_t envid;
+
+    /* Fetch a prime from our left neighbor */
+top:
+    p = ipc_recv(&envid, 0, 0, 0);
+    cprintf("%d ", p);
+
+    /* Fork a right neighbor to continue the chain */
+    if ((id = fork()) < 0)
+        panic("fork: %i", id);
+    if (id == 0)
+        goto top;
+
+    /* Filter out multiples of our prime */
+    while (1) {
+        i = ipc_recv(&envid, 0, 0, 0);
+        if (i % p)
+            ipc_send(id, i, 0, 0, 0);
+    }
+}
+
+void
+umain(int argc, char **argv) {
+    int id;
+
+    /* Fork the first prime process in the chain */
+    if ((id = fork()) < 0)
+        panic("fork: %i", id);
+    if (id == 0)
+        primeproc();
+
+    /* Feed all the integers through */
+    for (int i = 2;; i++)
+        ipc_send(id, i, 0, 0, 0);
+}

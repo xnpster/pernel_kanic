@@ -19,6 +19,8 @@ readline(const char *prompt) {
         int c = getchar();
 
         if (c < 0) {
+            if (c != -E_EOF)
+                cprintf("read error: %i\n", c);
             return NULL;
         } else if ((c == '\b' || c == '\x7F')) {
             if (i) {
