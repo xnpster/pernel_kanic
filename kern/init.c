@@ -23,9 +23,9 @@ void
 timers_init(void) {
     timertab[0] = timer_rtc;
     timertab[1] = timer_pit;
-//    timertab[2] = timer_acpipm;
-//    timertab[3] = timer_hpet0;
-//    timertab[4] = timer_hpet1;
+    timertab[2] = timer_acpipm;
+    timertab[3] = timer_hpet0;
+    timertab[4] = timer_hpet1;
 
     for (int i = 0; i < MAX_TIMERS; i++) {
         if (timertab[i].timer_init) {
@@ -145,28 +145,26 @@ i386_init(void) {
     init_memory();
 
     pic_init();
-    rtc_timer_init();
-    //remove
-    //rtc_timer_pic_interrupt();
-    // timers_init();    
+    timers_init();
+
     /* Framebuffer init should be done after memory init */
     fb_init();
     if (trace_init) cprintf("Framebuffer initialised\n");
 
     /* User environment initialization functions */
     env_init();
-    
+
     /* Choose the timer used for scheduling: hpet or pit */
-    // timers_schedule("rtc");
-    // assert(false);
+    timers_schedule("hpet0");
+
 #ifdef CONFIG_KSPACE
     /* Touch all you want */
-    ENV_CREATE_KERNEL_TYPE(prog_test1);
+    /*ENV_CREATE_KERNEL_TYPE(prog_test1);
     ENV_CREATE_KERNEL_TYPE(prog_test2);
     ENV_CREATE_KERNEL_TYPE(prog_test3);
     ENV_CREATE_KERNEL_TYPE(prog_test4);
     ENV_CREATE_KERNEL_TYPE(prog_test5);
-    ENV_CREATE_KERNEL_TYPE(prog_test6);
+    ENV_CREATE_KERNEL_TYPE(prog_test6);*/
 #else
 
 #if LAB >= 10

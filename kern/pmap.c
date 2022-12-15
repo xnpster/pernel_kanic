@@ -1546,7 +1546,7 @@ __attribute__((aligned(HUGE_PAGE_SIZE))) uint8_t one_page_raw[HUGE_PAGE_SIZE];
 
 /*
  * This function initialized phyisical memory tree
- * with either UEFI memory map or CMOS contents.
+ * with either UEFI memroy map or CMOS contents.
  * Every region is inserted into the tree using
  * attach_region() function.
  */
@@ -1793,7 +1793,7 @@ init_memory(void) {
      * and KASAN shadow memory regions to new kernel address space.
      * Allocated memory should not be touches until address space switch */
 
-    /* Map physical memory onto kernel address space weakly... */
+    /* Map physical memroy onto kernel address space weakly... */
     /* NOTE We cannot use map_region to map memory allocated with ALLOC_WEAK */
 
     // LAB 7: Your code here
@@ -1823,6 +1823,8 @@ init_memory(void) {
 
 #ifdef SANITIZE_SHADOW_BASE
     init_shadow_pre();
+    
+    
 #endif
 
     EFI_MEMORY_DESCRIPTOR *mstart = (void *)uefi_lp->MemoryMap;
@@ -1869,6 +1871,8 @@ init_memory(void) {
 
 #ifdef SANITIZE_SHADOW_BASE
     unpoison_meta(&root);
+    platform_asan_unpoison((void*)(KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE), (size_t) KERN_PF_STACK_SIZE);
+    platform_asan_unpoison((void*)(KERN_STACK_TOP - KERN_STACK_SIZE), (size_t) KERN_STACK_SIZE);
 #endif
 
     /* Traps needs to be initiallized here

@@ -55,6 +55,18 @@ load_user_dwarf_info(struct Dwarf_Addrs *addrs) {
 
     /* Load debug sections from curenv->binary elf image */
     // LAB 8: Your code here
+    struct Elf *elf = (struct Elf *)binary;
+    struct Secthdr *sh = (struct Secthdr *)(binary + elf->e_shoff);
+    char *shstr = (char *)binary + sh[elf->e_shstrndx].sh_offset;
+    for (size_t i = 0; i < elf->e_shnum; i++) {
+        for (size_t j = 0; j < sizeof(sections) / sizeof(*sections); j++) {
+            struct Secthdr *sh_cur = sh + i;
+            if (!strcmp(shstr + sh_cur->sh_name, sections[j].name)) {
+                *sections[j].start = binary + sh_cur->sh_offset;
+                *sections[j].end = binary + sh_cur->sh_offset + sh_cur->sh_size;
+            }
+        }
+    }
 }
 
 #define UNKNOWN       "<unknown>"
@@ -81,6 +93,9 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     /* Temporarily load kernel cr3 and return back once done.
     * Make sure that you fully understand why it is necessary. */
     // LAB 8: Your code here
+    uintptr_t old_cr3 = curenv->address_space.cr3;
+    if (old_cr3 != kspace.cr3)
+        lcr3(kspace.cr3);
 
     /* Load dwarf section pointers from either
      * currently running program binary or use
@@ -90,7 +105,11 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     // LAB 8: Your code here:
 
     struct Dwarf_Addrs addrs;
-    load_kernel_dwarf_info(&addrs);
+    if (addr < MAX_USER_READABLE) {
+        load_user_dwarf_info(&addrs);
+    } else {
+        load_kernel_dwarf_info(&addrs);
+    }
 
     Dwarf_Off offset = 0, line_offset = 0;
     int res = info_by_address(&addrs, addr, &offset);
@@ -107,10 +126,8 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     * Hint: use line_for_address from kern/dwarf_lines.c */
 
     // LAB 2: Your res here:
-    int line_no;
-    res = line_for_address(&addrs, addr, line_offset, &line_no);
+    res = line_for_address(&addrs, addr - 5, line_offset, &info->rip_line);
     if (res < 0) goto error;
-    info->rip_line = line_no;
 
     /* Find function name corresponding to given address.
     * Hint: note that we need the address of `call` instruction, but rip holds
@@ -118,51 +135,15 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     * Hint: use function_by_info from kern/dwarf.c
     * Hint: info->rip_fn_name can be not NULL-terminated,
     * string returned by function_by_info will always be */
-    uintptr_t line_off_addr;
-    char* fn_name;
-    res = function_by_info(&addrs, addr, offset, &(fn_name), &line_off_addr);
-    if (res < 0) goto error;
-    info->rip_fn_addr = line_off_addr;
-    strncpy(info->rip_fn_name, fn_name, sizeof(info->rip_fn_name));
+
     // LAB 2: Your res here:
+    res = function_by_info(&addrs, addr - 5, offset, &tmp_buf, &info->rip_fn_addr);
+    if (res < 0) return 0;;
+    strncpy(info->rip_fn_name, tmp_buf, sizeof(info->rip_fn_name));
+    info->rip_fn_namelen = strnlen(info->rip_fn_name, sizeof(info->rip_fn_name));
 
 error:
     return res;
-}
-
-struct sym_table_t {
-        char *name;
-            void *addr;
-};
-
-struct sym_table_t gbl_sym_table[1] __attribute__((weak)) = {{NULL, NULL}};
-
-void * reflect_query_symbol(const char *name) {
-    struct sym_table_t *p = &gbl_sym_table[0];
-
-    for(; p->name; p++) {
-        if(strcmp(p->name, name) == 0) {
-            return p->addr;
-        }
-    }
-    return NULL;
-}
-
-uintptr_t find_asm_name(const char* fname) {
-    struct Elf64_Sym* symb = (struct Elf64_Sym*) uefi_lp->SymbolTableStart;
-    struct Elf64_Sym* end = (struct Elf64_Sym*) uefi_lp->SymbolTableEnd;
-
-    uint8_t* strtable = (uint8_t*) uefi_lp->StringTableStart;
-    
-    for(; symb < end; symb = symb + 1) {
-        if(symb->st_name != 0) {
-            if(!strcmp(fname, (const char*) (strtable + symb->st_name))) {
-                return (uintptr_t) (symb->st_value);
-            }
-        }
-    }
-
-    return 0;
 }
 
 uintptr_t
@@ -172,21 +153,28 @@ find_function(const char *const fname) {
      * and naive_address_by_fname which performs full traversal of DIE tree.
      * It may also be useful to look to kernel symbol table for symbols defined
      * in assembly. */
+
+    // LAB 3: Your code here:
+    LOADER_PARAMS *lp = (LOADER_PARAMS *)uefi_lp;
+    struct Elf64_Sym *symtab = (struct Elf64_Sym *)lp->SymbolTableStart;
+    struct Elf64_Sym *symtab_end = (struct Elf64_Sym *)lp->SymbolTableEnd;
+    char *strtab = (char *)lp->StringTableStart;
+
+    for (struct Elf64_Sym *iter = symtab; iter < symtab_end; iter++) {
+        if (!strcmp(&strtab[iter->st_name], fname)) {
+            return (uintptr_t)iter->st_value;
+        }
+    }
+
     struct Dwarf_Addrs addrs;
     load_kernel_dwarf_info(&addrs);
-    
     uintptr_t offset = 0;
 
-    address_by_fname(&addrs, fname, &offset);
+    if (!address_by_fname(&addrs, fname, &offset))
+        return offset;
 
-    if(offset != 0) {
+    if (!naive_address_by_fname(&addrs, fname, &offset))
         return offset;
-    }
-    
-    naive_address_by_fname(&addrs, fname, &offset);
-    if(offset != 0) {
-        return offset;
-    }
-    
-    return find_asm_name(fname);
+
+    return 0;
 }

@@ -70,8 +70,10 @@ ASM_PFX(CallKernelThroughGateAsm):
 
     ; Disable interrupts.
     cli
+
     ; Drop return pointer as we no longer need it.
     pop ecx
+
     ; Save kernel entry point passed by the bootloader.
     pop ecx
     mov eax, KERNEL_ENTRY
@@ -81,57 +83,51 @@ ASM_PFX(CallKernelThroughGateAsm):
     pop ecx
     mov eax, LOADER_PARAMS
     mov [eax], ecx
-    
+
     ; Save identity page table passed by the bootloader.
     pop ecx
     mov eax, PAGE_TABLE
     mov [eax], ecx
-         
-    mov eax, 0228001
-    xor eax, eax
- 
+
     ; 1. Disable paging.
-    ; L1 code
+    ; LAB 2: Your code here:
     mov eax, cr0
-    and eax, ~(1 << 31)
+    and eax, 0x7FFFFFFF
     mov cr0, eax
-    ;---
 
     ; 2. Switch to our GDT that supports 64-bit mode and update CS to LINEAR_CODE_SEL.
-    ; L1 code
+    ; LAB 2: Your code here:
     lgdt [GDT_DESCRIPTOR]
-    jmp 0x08:AsmWithOurGdt
+    jmp LINEAR_CODE_SEL:AsmWithOurGdt
 
 AsmWithOurGdt:
+
     ; 3. Reset all the data segment registers to linear mode (LINEAR_DATA_SEL).
-    mov ax, 0x10 
-    mov ds, ax   
+    ; LAB 2: Your code here:
+    mov eax, LINEAR_DATA_SEL
+    mov ds, ax
+    mov ss, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
-    mov ss, ax
-    ; LAB 2: Your code here:
-    
+
     ; 4. Enable PAE/PGE in CR4, which is required to transition to long mode.
     ; This may already be enabled by the firmware but is not guaranteed.
     ; LAB 2: Your code here:
-    
     mov eax, cr4
     or eax, 1 << 5
+    or eax, 1 << 7
     mov cr4, eax
 
-    ; 5. Update page table address register (CR3) right away with the supplied PAGE_TABLE.
+    ; 5. Update page table address register (C3) right away with the supplied PAGE_TABLE.
     ; This does nothing as paging is off at the moment as paging is disabled.
     ; LAB 2: Your code here:
-    
-    mov eax, [REL PAGE_TABLE]
+    mov eax, [PAGE_TABLE]
     mov cr3, eax
-    
+
     ; 6. Enable long mode (LME) and execute protection (NXE) via the EFER MSR register.
     ; LAB 2: Your code here:
-    
-    mov ecx, 0c0000080h
-   
+    mov ecx, 0xC0000080
     rdmsr
     or eax, 1 << 8
     or eax, 1 << 11
@@ -139,28 +135,28 @@ AsmWithOurGdt:
 
     ; 7. Enable paging as it is required in 64-bit mode.
     ; LAB 2: Your code here:
-    
     mov eax, cr0
-    or eax, 1 << 1
+    or eax, 1 
     or eax, 1 << 16
     or eax, 1 << 18
     or eax, 1 << 31
     mov cr0, eax
-    
+
     ; 8. Transition to 64-bit mode by updating CS with LINEAR_CODE64_SEL.
     ; LAB 2: Your code here:
-    jmp 0x18:AsmInLongMode
+    jmp LINEAR_CODE64_SEL:AsmInLongMode
+
 AsmInLongMode:
     BITS 64
 
     ; 9. Reset all the data segment registers to linear 64-bit mode (LINEAR_DATA64_SEL).
     ; LAB 2: Your code here:
-    mov ax, 0x20 
-    mov ds, ax   
+    mov rax, LINEAR_DATA64_SEL
+    mov ds, ax
+    mov ss, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
-    mov ss, ax
 
     ; 10. Jump to the kernel code.
     mov ecx, [REL LOADER_PARAMS]
@@ -169,4 +165,4 @@ AsmInLongMode:
 
 noreturn:
     hlt
-     
+    jmp noreturn

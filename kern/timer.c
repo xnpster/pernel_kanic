@@ -87,36 +87,83 @@ acpi_find_table(const char *sign) {
      * HINT: RSDP address is stored in uefi_lp->ACPIRoot
      * HINT: You may want to distunguish RSDT/XSDT
      */
-    
+
     // LAB 5: Your code here
-    
-    RSDP* rsdp = (RSDP*) uefi_lp->ACPIRoot;
-    
-    bool use_xsdt = (rsdp->Revision >= 2);
-    RSDT* rsdt;
-    int TablePointerSize = 8;
-    
-    if(!use_xsdt || !(rsdt = (RSDT*) (rsdp->XsdtAddress)))
-    {
-        rsdt = (RSDT*)(uint64_t) (rsdp->RsdtAddress);
-        TablePointerSize = 4;
-    }
-    
-    int entr_num = (rsdt->h.Length - sizeof(rsdt->h)) / TablePointerSize;
-    uint8_t* entries_base = (uint8_t*) rsdt->PointerToOtherSDT;
+    static RSDT *rsdt = 0;
+    static bool isXSDT = 0;
 
-    ACPISDTHeader* curr_h;
-    for(int i = 0; i < entr_num; i++) {
-        if(TablePointerSize == 8)
-            curr_h = (ACPISDTHeader*) (*(uint64_t*)(entries_base + i*8));
-        else
-            curr_h = (ACPISDTHeader*) (uint64_t)(*(uint32_t*)(entries_base + i*4));
+    if (!rsdt) {
+        if (!uefi_lp->ACPIRoot)
+            panic("No rsdp\n");
 
-        if(strncmp(curr_h->Signature, sign, 4) == 0) {
-           return mmio_map_region((physaddr_t) curr_h, curr_h->Length); 
+        physaddr_t acpi_phys = uefi_lp->ACPIRoot;
+        RSDP *rsdp = mmio_map_region((physaddr_t)acpi_phys, sizeof(*rsdp));
+
+        /* Validate */
+        if (strncmp(rsdp->Signature, "RSD PTR ", 8))
+            panic("Malformed RSDP");
+
+        physaddr_t rsdt_phys;
+        if (rsdp->Revision) {
+            /* ACPI 2.0 or higher is used */
+            /* Validate checksum of full struct 
+             * Calculate and validate checksum of first and second halfs*/
+            uint8_t checksum = 0;
+            uint8_t *iter;
+            for (iter = (uint8_t *)rsdp; iter < (uint8_t *)&(rsdp->Length); iter++)
+                checksum += *iter;
+
+            if (checksum)
+                panic("Malformed RSDP");
+
+            for (; iter < ((uint8_t *)rsdp + sizeof(*rsdp)); iter++)
+                checksum += *iter;
+
+            if (checksum)
+                panic("Malformed RSDP");
+
+            rsdt_phys = rsdp->XsdtAddress;
+            isXSDT = 1;
+        } else {
+            /* ACPI 1.0 is used */
+            uint8_t checksum = 0;
+            uint8_t *iter;
+            /* Validate checksum of first half of struct */
+            for (iter = (uint8_t *)rsdp; iter < (uint8_t *)&(rsdp->Length); iter++)
+                checksum += *iter;
+
+            if (checksum)
+                panic("Malformed RSDP");
+            rsdt_phys = rsdp->RsdtAddress;
         }
+
+        rsdt = mmio_map_region(rsdt_phys, sizeof(RSDT));
+        /* Remap using actual size */
+        rsdt = mmio_map_region(rsdt_phys, rsdt->h.Length);
+
+        /* Validate header checksum */
+        uint8_t checksum = 0;
+ 
+        for (int i = 0; i < rsdt->h.Length; i++)
+            checksum += ((uint8_t *) &rsdt->h)[i];
+        if (checksum)
+                panic("Malformed RSDT header");
     }
-    
+
+    size_t entries_cnt = (rsdt->h.Length - sizeof(ACPISDTHeader)) / (isXSDT ? 8 : 4);
+    for (size_t i = 0; i < entries_cnt; i++) {
+        physaddr_t header_physical = rsdt->PointerToOtherSDT[i];
+        if (!header_physical)
+            continue;
+        ACPISDTHeader *header = mmio_map_region(header_physical, sizeof(ACPISDTHeader));
+        /* Remap using actual size */
+        header = mmio_map_region(header_physical, header->Length);
+
+        if (!strncmp(header->Signature, sign, 4))
+            return header;
+    }
+
+
     return NULL;
 }
 
@@ -127,10 +174,10 @@ get_fadt(void) {
     // (use acpi_find_table)
     // HINT: ACPI table signatures are
     //       not always as their names
-    
+
     static FADT *kfadt;
-    
-    kfadt = (FADT*)acpi_find_table("FACP");
+    if (!kfadt)
+        kfadt = acpi_find_table("FACP");
 
     return kfadt;
 }
@@ -142,7 +189,9 @@ get_hpet(void) {
     // (use acpi_find_table)
 
     static HPET *khpet;
-    khpet = (HPET*)acpi_find_table("HPET");
+    if (!khpet)
+        khpet = acpi_find_table("HPET");
+
     return khpet;
 }
 
@@ -159,9 +208,7 @@ hpet_register(void) {
 /* Debug HPET timer state. */
 void
 hpet_print_struct(void) {
-    //REM
     HPET *hpet = get_hpet();
-    assert(hpet != NULL);
     cprintf("signature = %s\n", (hpet->h).Signature);
     cprintf("length = %08x\n", (hpet->h).Length);
     cprintf("revision = %08x\n", (hpet->h).Revision);
@@ -242,97 +289,29 @@ hpet_get_main_cnt(void) {
  * HINT To be able to use HPET as PIT replacement consult
  *      LegacyReplacement functionality in HPET spec.
  * HINT Don't forget to unmask interrupt in PIC */
-
-#define TICKS_PER_SEC 10000000
-#define TICKS_PER_500MS (TICKS_PER_SEC / 2)
-#define TICKS_PER_0D5SEC TICKS_PER_500MS
-#define TICKS_PER_1D5SEC (TICKS_PER_500MS * 20)
-
 void
 hpet_enable_interrupts_tim0(void) {
     // LAB 5: Your code here
-    if(!(hpetReg->GCAP_ID & HPET_LEG_RT_CAP))
-        panic("Legacy mode not supported\n");
-    
-
-    uint64_t femptosec_per_tick = (uint32_t) (hpetReg->GCAP_ID >> 32);
-    //femptosec = 10^-15 sec
-    
-    // millis_per_tick = femptosec_per_tick * 10^-12
-    // ticks_per_500_ms = 500/millis_per_tick = (500/femptosec_per_tick) * 10^12
-    // = (5 * 10^14)/femptosec_per_tick = 1/2 * 1/femptosec_per_tick * 10^15
-
-    uint64_t ticks_per_500_ms = (Peta / 2)/femptosec_per_tick;
-
-    //disable interrupts
-    hpetReg->GEN_CONF = hpetReg->GEN_CONF & ~((uint64_t)HPET_ENABLE_CNF);
-    //enable lrgacy route
-    hpetReg->GEN_CONF = hpetReg->GEN_CONF | HPET_LEG_RT_CNF;
-    
-    //reset main counter
-    hpetReg->MAIN_CNT = (uint64_t) 0;
-
-    if(!(hpetReg->TIM0_CONF & HPET_TN_PER_INT_CAP))
-        panic("Periodic interrupts of timer 0 not supported\n");
-    
-    //set interrupt type to periodic
+    hpetReg->GEN_CONF |= HPET_LEG_RT_CNF;
+    hpetReg->TIM0_CONF = 0;
+    hpetReg->TIM0_CONF |= (IRQ_TIMER << 9);
     hpetReg->TIM0_CONF |= HPET_TN_TYPE_CNF;
-    //enable interrupts
     hpetReg->TIM0_CONF |= HPET_TN_INT_ENB_CNF;
-    
-    uint64_t timer_val_mask = hpetReg->TIM0_CONF & HPET_TN_SIZE_CAP ? 0xFFFFFFFFFFFFFFFF : 0xFFFFFFFF;
-   
-    //allow to set accumulator
     hpetReg->TIM0_CONF |= HPET_TN_VAL_SET_CNF;
-    //set accumulator frequency
-    hpetReg->TIM0_COMP = ticks_per_500_ms & timer_val_mask;
-    
-    //enable interrupts
-    hpetReg->GEN_CONF |= HPET_ENABLE_CNF;
+    hpetReg->TIM0_COMP = Peta / 2 / hpetFemto;
     pic_irq_unmask(IRQ_TIMER);
 }
 
 void
 hpet_enable_interrupts_tim1(void) {
     // LAB 5: Your code here
-    if(!(hpetReg->GCAP_ID & HPET_LEG_RT_CAP))
-        panic("Legacy mode not supported\n");
-    
-    uint64_t femptosec_per_tick = (uint32_t) (hpetReg->GCAP_ID >> 32);
-    //femptosec = 10^-15 sec
-    
-    // millis_per_tick = femptosec_per_tick * 10^-12
-    // ticks_per_1500_ms = 1500/millis_per_tick = (1500/femptosec_per_tick) * 10^12
-    // = (15 * 10^14)/femptosec_per_tick = 3/2 * 1/femptosec_per_tick * 10^15
-
-    uint64_t ticks_per_1500_ms = (3 * Peta / 2)/femptosec_per_tick;
-
-    //disable interrupts
-    hpetReg->GEN_CONF = hpetReg->GEN_CONF & ~((uint64_t)HPET_ENABLE_CNF);
-    //enable lrgacy route
-    hpetReg->GEN_CONF = hpetReg->GEN_CONF | HPET_LEG_RT_CNF;
-    
-    //reset main counter
-    hpetReg->MAIN_CNT = (uint64_t) 0;
-
-    if(!(hpetReg->TIM0_CONF & HPET_TN_PER_INT_CAP))
-        panic("Periodic interrupts of timer 1 not supported\n");
-    
-    //set interrupt type to periodic
+    hpetReg->GEN_CONF |= HPET_LEG_RT_CNF;
+    hpetReg->TIM1_CONF = 0;
+    hpetReg->TIM1_CONF |= (IRQ_CLOCK << 9);
     hpetReg->TIM1_CONF |= HPET_TN_TYPE_CNF;
-    //enable interrupts
     hpetReg->TIM1_CONF |= HPET_TN_INT_ENB_CNF;
-    
-    uint64_t timer_val_mask = hpetReg->TIM0_CONF & HPET_TN_SIZE_CAP ? 0xFFFFFFFFFFFFFFFF : 0xFFFFFFFF;
-   
-    //allow to set accumulator
     hpetReg->TIM1_CONF |= HPET_TN_VAL_SET_CNF;
-    //set accumulator frequency
-    hpetReg->TIM1_COMP = ticks_per_1500_ms & timer_val_mask;
-    
-    //enable interrupts
-    hpetReg->GEN_CONF |= HPET_ENABLE_CNF;
-
+    hpetReg->TIM1_COMP = 3 * Peta / 2 / hpetFemto;
     pic_irq_unmask(IRQ_CLOCK);
 }
 
@@ -351,36 +330,26 @@ hpet_handle_interrupts_tim1(void) {
  * about pause instruction. */
 uint64_t
 hpet_cpu_frequency(void) {
-    static uint64_t cpu_freq = 0;
+    static uint64_t cpu_freq;
 
     // LAB 5: Your code here
-    
-    if(cpu_freq == 0) {
-        uint64_t old_tsc = read_tsc();
-        uint64_t old_cnt = hpet_get_main_cnt();
-    
-        uint64_t femptosec_per_tick = 0xFFFFFFFF & (hpetReg->GCAP_ID >> 32);
-        uint64_t ticks_per_sec = Peta/femptosec_per_tick;
-        
-        bool is64 = (1 << 13) & hpetReg->GCAP_ID;
-    
-        int SEC_PART = 100; // count while 1/100 sec
-        int64_t diff = 0;
-        do {
-            asm("pause");
-            uint64_t curr = hpet_get_main_cnt();
-            
-            if(curr < old_cnt) {
-                //overflow
-                diff = is64 ? 0xFFFFFFFFFFFFFFFF : 0xFFFFFFFF;
-                diff = diff - old_cnt + curr;
-            } else {
-                diff = curr - old_cnt;
-            }
-        } while (diff < ticks_per_sec / SEC_PART);
-    
-        cpu_freq = (read_tsc() - old_tsc) * ticks_per_sec / diff;
-    }
+    if (cpu_freq)
+        return cpu_freq;
+
+    const uint64_t wait = 100;
+
+    uint64_t hpet_delta;
+    uint64_t hpet_start = hpet_get_main_cnt();
+    uint64_t tsc_start = read_tsc();
+    uint64_t tsc_end;
+
+    do {
+        asm("pause");
+        hpet_delta = hpet_get_main_cnt() - hpet_start;
+        tsc_end = read_tsc();
+    } while (hpet_delta < hpetFreq / wait);
+
+    cpu_freq = (tsc_end - tsc_start) * hpetFreq / hpet_delta;
 
     return cpu_freq;
 }
@@ -396,29 +365,35 @@ pmtimer_get_timeval(void) {
  *      can be 24-bit or 32-bit. */
 uint64_t
 pmtimer_cpu_frequency(void) {
-    static uint64_t cpu_freq = 0;
+    static uint64_t cpu_freq;
 
     // LAB 5: Your code here
-    
-    if(cpu_freq == 0) {
-        bool is32 = (1 << 8) & get_fadt()->Flags;
-        int SEC_PART = 100; // count while 1/100 sec
-        uint64_t old_tsc = read_tsc();
-        uint64_t old_cnt = pmtimer_get_timeval();
-     
-        int64_t diff = 0; 
-        do {
-            asm("pause");
-        
-            diff = pmtimer_get_timeval() - old_cnt;
-            if(diff < 0) {
-                //overflow
-                diff += is32 ? 0xFFFFFFFF : 0x00FFFFFF;
-            }
-        } while (diff < PM_FREQ / SEC_PART);
-    
-        cpu_freq = (read_tsc() - old_tsc) * PM_FREQ / diff;
-    }
+    if (cpu_freq)
+        return cpu_freq;
+
+    const uint64_t wait = 100;
+
+    uint64_t pm_delta;
+    uint64_t pm_start = pmtimer_get_timeval();
+    uint64_t tsc_start = read_tsc();
+    uint64_t tsc_end;
+
+    do {
+        asm("pause");
+        uint64_t pm_cur = pmtimer_get_timeval();
+        tsc_end = read_tsc();
+        if (pm_start <= pm_cur) {
+            /* No overflow */
+            pm_delta = pm_cur - pm_start;
+        } else if (pm_start - pm_cur <= 0x00FFFFFF) {
+            /* 24-bit overflow */
+            pm_delta = 0x00FFFFFF - pm_start + pm_cur;
+        } else {
+            pm_delta = 0xFFFFFFFF - pm_start + pm_cur;
+        }
+    } while (pm_delta < PM_FREQ / wait);
+
+    cpu_freq = (tsc_end - tsc_start) * PM_FREQ / pm_delta;
 
     return cpu_freq;
 }
