@@ -160,6 +160,8 @@ trap_init(void) {
      * code execution */
     idt[T_PGFLT].gd_ist = 1;
 
+    // LAB 11: Your code here
+
     /* Per-CPU setup */
     trap_init_percpu();
 }
@@ -299,6 +301,8 @@ trap_dispatch(struct Trapframe *tf) {
         timer_for_schedule->handle_interrupts();
         sched_yield();
         return;
+        /* Handle keyboard and serial interrupts. */
+        // LAB 11: Your code here
     default:
         print_trapframe(tf);
         if (!(tf->tf_cs & 3))
