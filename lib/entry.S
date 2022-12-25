@@ -8,6 +8,8 @@
 # LAB 12: Your code here
 .globl envs
 .set envs, UENVS
+.globl vsys
+.set vsys, UVSYS
 .globl uvpt
 .set uvpt, UVPT
 .globl uvpd

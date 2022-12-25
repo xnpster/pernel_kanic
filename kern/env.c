@@ -114,13 +114,10 @@ env_init(void) {
     for (size_t i = 0; i < NENV - 1; i++) {
         envs[i].env_link = &envs[i + 1];
     }
-    /*for (ssize_t i = NENV - 1; i >= 0; i--) {
-        struct Env *cur_env = envs + i;
-        cur_env->env_status = ENV_FREE;
-        cur_env->env_link = env_free_list;
-        cur_env->env_id = 0;
-        env_free_list = cur_env;
-    }*/
+    
+    vsys = kzalloc_region(UVSYS_SIZE);
+    memset((void *)vsys, 0, ROUNDUP(UVSYS_SIZE, PAGE_SIZE));
+    map_region(current_space, UVSYS, &kspace, (uintptr_t)vsys, UVSYS_SIZE, PROT_R | PROT_USER_);
 }
 
 /* Allocates and initializes a new environment.

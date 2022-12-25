@@ -1,5 +1,0 @@
-b kern/syscall.c:sys_ipc_recv
-c
-c
-c
-
