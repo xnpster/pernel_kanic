@@ -421,6 +421,8 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
         return sys_ipc_try_send((envid_t)a1, (uint32_t)a2, a3,(size_t)a4,(int)a5);
     case SYS_ipc_recv:
         return sys_ipc_recv(a1, a2);
+    case SYS_region_refs:
+        return sys_region_refs(a1, (size_t)a2, a3, a4);
     default:
         return -E_NO_SYS;
     }
