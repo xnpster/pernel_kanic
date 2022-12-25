@@ -120,6 +120,9 @@ void mchk_thdlr(void);
 void align_thdlr(void);
 void simderr_thdlr(void);
 
+void kbd_thdlr(void);
+void serial_thdlr(void);
+
 void
 trap_init(void) {
     // LAB 4: Your code here
@@ -161,6 +164,8 @@ trap_init(void) {
     idt[T_PGFLT].gd_ist = 1;
 
     // LAB 11: Your code here
+    idt[IRQ_OFFSET + IRQ_KBD] = GATE(0, GD_KT, (uint64_t)kbd_thdlr, 3);
+    idt[IRQ_OFFSET + IRQ_SERIAL] = GATE(0, GD_KT, (uint64_t)serial_thdlr, 3);
 
     /* Per-CPU setup */
     trap_init_percpu();
@@ -303,6 +308,14 @@ trap_dispatch(struct Trapframe *tf) {
         return;
         /* Handle keyboard and serial interrupts. */
         // LAB 11: Your code here
+    case IRQ_OFFSET + IRQ_KBD:
+        kbd_intr();
+        sched_yield();
+        return;
+    case IRQ_OFFSET + IRQ_SERIAL:
+        serial_intr();
+        sched_yield();
+        return;
     default:
         print_trapframe(tf);
         if (!(tf->tf_cs & 3))

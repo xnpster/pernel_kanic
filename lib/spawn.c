@@ -284,6 +284,24 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
     /* read filesz to UTEMP */
     /* Map read section conents to child */
     /* Unmap it from parent */
+    if (memsz > filesz && 
+        (res = sys_alloc_region(child, (void *)ROUNDUP(va + filesz, 4096), memsz, perm)))
+        return res;
+
+    if ((res = sys_alloc_region(0, UTEMP, ROUNDUP(filesz, 4096), PTE_P | PTE_U | PTE_W)))
+        return res;
+
+    if ((res = seek(fd, fileoffset)))
+        return res;
+
+    if ((res = readn(fd, UTEMP, filesz)) < 0)
+        return res;
+
+    if ((res = sys_map_region(0, UTEMP, child, (void *)va, ROUNDUP(filesz, 4096), perm)))
+        return res;
+
+    if ((res = sys_unmap_region(0, UTEMP, ROUNDUP(filesz, 4096))))
+        return res;
 
     return 0;
 }

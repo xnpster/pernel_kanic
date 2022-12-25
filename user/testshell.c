@@ -6,7 +6,7 @@ void wrong(int rfd, int kfd, int off, char c1, char c2);
 void
 umain(int argc, char **argv) {
     char c1, c2;
-    int r, rfd, wfd, kfd, n1, n2, off, nloff;
+    int r, rfd, wfd, kfd, n1, n2, off;
     int pfds[2];
 
     close(0);
@@ -42,7 +42,6 @@ umain(int argc, char **argv) {
     if ((kfd = open("testshell.key", O_RDONLY)) < 0)
         panic("open testshell.key for reading: %i", kfd);
 
-    nloff = 0;
     for (off = 0;; off++) {
         n1 = read(rfd, &c1, 1);
         n2 = read(kfd, &c2, 1);
@@ -55,8 +54,6 @@ umain(int argc, char **argv) {
         if (n1 != 1 || n2 != 1 || c1 != c2) {
             wrong(rfd, kfd, off, c1, c2);
         }
-        if (c1 == '\n')
-            nloff = off + 1;
     }
     cprintf("shell ran correctly\n");
 
