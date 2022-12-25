@@ -310,8 +310,11 @@ sys_ipc_try_send(envid_t envid, uint32_t value, uintptr_t srcva, size_t size, in
         return -E_IPC_NOT_RECV;
 
     if (srcva < MAX_USER_ADDRESS && env->env_ipc_dstva < MAX_USER_ADDRESS) {
-        if (PAGE_OFFSET(srcva) || PAGE_OFFSET(env->env_ipc_dstva) || 
-            perm & ~PROT_ALL || (perm & ~(PTE_AVAIL | PTE_W)) != (PTE_U | PTE_P))
+        if (PAGE_OFFSET(srcva))
+            return -E_INVAL;
+        if (PAGE_OFFSET(env->env_ipc_dstva))
+            return -E_INVAL;
+        if (perm & ~PROT_ALL)
             return -E_INVAL;
 
         if (map_region(&env->address_space, env->env_ipc_dstva, 
@@ -373,7 +376,13 @@ sys_ipc_recv(uintptr_t dstva, uintptr_t maxsize) {
 static int
 sys_region_refs(uintptr_t addr, size_t size, uintptr_t addr2, uintptr_t size2) {
     // LAB 10: Your code here
-    return 0;
+    if (addr2 < MAX_USER_ADDRESS) {
+        int maxref1 = region_maxref(&curenv->address_space, addr, size);
+        int maxref2 = region_maxref(&curenv->address_space, addr2, size2);
+        return maxref1 - maxref2;
+    } else {
+        return region_maxref(&curenv->address_space, addr, size);
+    }
 }
 
 /* Dispatches to the correct kernel function, passing the arguments. */

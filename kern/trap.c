@@ -454,6 +454,7 @@ page_fault_handler(struct Trapframe *tf) {
                     tf->tf_err & FEC_R ? 'R' : '-',
                     tf->tf_err & FEC_I ? 'I' : '-');
         }
+        in_page_fault = 0;
         user_mem_assert(curenv, (void *)tf->tf_rsp, sizeof(struct UTrapframe), PROT_W | PROT_USER_);
         env_destroy(curenv);
     }
@@ -495,8 +496,8 @@ page_fault_handler(struct Trapframe *tf) {
     switch_address_space(old);
     /* Reset in_page_fault flag */
     // LAB 9: Your code here:
-    if (envs->env_tf.tf_trapno == T_PGFLT)
-        in_page_fault = 0;
+    
+    in_page_fault = 0;
     
     /* Rerun current environment */
     // LAB 9: Your code here:

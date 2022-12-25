@@ -397,6 +397,9 @@ env_create(uint8_t *binary, size_t size, enum EnvType type) {
 
     env->binary = binary;
     env->env_type = type;
+    
+    if (type == ENV_TYPE_FS)
+        env->env_tf.tf_rflags |= FL_IOPL_3;
 }
 
 
