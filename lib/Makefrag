@@ -20,6 +20,12 @@ LIB_SRCFILES :=		$(LIB_SRCFILES) \
 			lib/pfentry.S \
 			lib/fork.c \
 			lib/ipc.c \
+			lib/args.c \
+			lib/fd.c \
+			lib/file.c \
+			lib/fprintf.c \
+			lib/pipe.c \
+			lib/wait.c \
 			lib/uvpt.c
 
 LIB_OBJFILES := $(patsubst lib/%.c, $(OBJDIR)/lib/%.o, $(LIB_SRCFILES))

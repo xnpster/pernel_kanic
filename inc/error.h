@@ -19,6 +19,14 @@ enum {
     E_NO_ENT = 10,       /* Not found */
     E_IPC_NOT_RECV = 11, /* Attempt to send to env that is not recving */
     E_EOF = 12,          /* Unexpected end of file */
+    /* File system error codes -- only seen in user-level */
+    E_NO_DISK = 13,     /* No free space left on disk */
+    E_MAX_OPEN = 14,    /* Too many files are open */
+    E_NOT_FOUND = 15,   /* File or block not found */
+    E_BAD_PATH = 16,    /* Bad path */
+    E_FILE_EXISTS = 17, /* File already exists */
+    E_NOT_EXEC = 18,    /* File not a valid executable */
+    E_NOT_SUPP = 19,    /* Operation not supported */
     MAXERROR
 };
 

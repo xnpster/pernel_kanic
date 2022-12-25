@@ -1546,7 +1546,7 @@ __attribute__((aligned(HUGE_PAGE_SIZE))) uint8_t one_page_raw[HUGE_PAGE_SIZE];
 
 /*
  * This function initialized phyisical memory tree
- * with either UEFI memroy map or CMOS contents.
+ * with either UEFI memory map or CMOS contents.
  * Every region is inserted into the tree using
  * attach_region() function.
  */
@@ -1793,7 +1793,7 @@ init_memory(void) {
      * and KASAN shadow memory regions to new kernel address space.
      * Allocated memory should not be touches until address space switch */
 
-    /* Map physical memroy onto kernel address space weakly... */
+    /* Map physical memory onto kernel address space weakly... */
     /* NOTE We cannot use map_region to map memory allocated with ALLOC_WEAK */
 
     // LAB 7: Your code here

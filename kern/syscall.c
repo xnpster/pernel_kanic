@@ -207,7 +207,7 @@ sys_alloc_region(envid_t envid, uintptr_t addr, size_t size, int perm) {
  *      or the caller doesn't have permission to change one of them.
  *  -E_INVAL if srcva >= MAX_USER_ADDRESS or srcva is not page-aligned,
  *      or dstva >= MAX_USER_ADDRESS or dstva is not page-aligned.
- *  -E_INVAL is srcva is not mapped in srcenvid's address space.
+ *  -E_INVAL if srcva is not mapped in srcenvid's address space.
  *  -E_INVAL if perm is inappropriate (see sys_page_alloc).
  *  -E_INVAL if (perm & PROT_W), but srcva is read-only in srcenvid's
  *      address space.
