@@ -144,7 +144,7 @@ devfile_write(struct Fd *fd, const void *buf, size_t n) {
     // LAB 10: Your code here:
     size_t i;
     for (i = 0; i < n;) {
-        size_t next = MIN(n - 1, sizeof(fsipcbuf.write.req_buf));
+        size_t next = MIN(n - i, sizeof(fsipcbuf.write.req_buf));
 
         memcpy(fsipcbuf.write.req_buf, buf, next);
         fsipcbuf.write.req_fileid = fd->fd_file.id;
