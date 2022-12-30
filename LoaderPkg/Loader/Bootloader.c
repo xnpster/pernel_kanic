@@ -764,7 +764,7 @@ LoadKernel (
     if (MaxAddress > MinAddress) {
       Status = gBS->AllocatePages (
         AllocateAddress,
-        EfiRuntimeServicesData,
+        EfiLoaderCode,
         EFI_SIZE_TO_PAGES (KernelSize),
         &MinAddress
         );
