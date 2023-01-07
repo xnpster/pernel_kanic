@@ -19,6 +19,37 @@
 #include <kern/kdebug.h>
 #include <kern/traceopt.h>
 
+char* c;
+
+void
+test_fakestack_internal() {
+    char c1[] = {'A', 'B', 'C', 'D', 'E'};
+    c = (char *)(c1 + 2);
+}
+
+void
+test_fakestack_internal2() {
+    char c1[] = {'A', 'B', 'c', 'D', 'E'};
+    for(int k = 0; k < sizeof(c1)/sizeof(*c1); k++) {
+        cprintf("%c", c1[k]);
+    }
+    cprintf("foo!\n");
+    cprintf("ch%cr is: %c\n", c1[0], *c);
+}
+
+
+void
+test_fakestack(bool error) {
+    cprintf("Testing fakestack...\n");
+    char d = 'D';
+    if(error) {
+        test_fakestack_internal();
+        test_fakestack_internal2();
+    } else
+        c = &d;
+    cprintf("char is: %c\n", *c);
+}
+
 void
 timers_init(void) {
     timertab[0] = timer_rtc;
@@ -141,6 +172,8 @@ i386_init(void) {
         cprintf("END: %p\n", end);
     }
 
+    test_fakestack(false);
+
     /* Lab 6 memory management initialization functions */
     init_memory();
 
@@ -156,7 +189,7 @@ i386_init(void) {
 
     /* Choose the timer used for scheduling: hpet or pit */
     timers_schedule("hpet0");
-
+    cprintf("timer scheduled\n");
 #ifdef CONFIG_KSPACE
     /* Touch all you want */
     /*ENV_CREATE_KERNEL_TYPE(prog_test1);
@@ -182,8 +215,10 @@ i386_init(void) {
 
     /* Should not be necessary - drains keyboard because interrupt has given up. */
     kbd_intr();
-
+    
     /* Schedule and run the first user environment! */
+    
+    cprintf("run envs\n");
     sched_yield();
 }
 

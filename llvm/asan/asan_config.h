@@ -13,6 +13,8 @@
  * See the GNU General Public License version 3 for more details.
  */
 
+#include "inc/env.h"
+
 #ifndef __ASAN_CONFIG_H__
 #define __ASAN_CONFIG_H__
 
@@ -28,26 +30,26 @@
 
 /* Enable or disable use after return check: */
 /* https://github.com/google/sanitizers/wiki/AddressSanitizerUseAfterReturn */
-#define PLATFORM_ASAN_USE_AFTER_RETURN 0
+#define PLATFORM_ASAN_USE_AFTER_RETURN 1
 
 #define PLATFORM_ASAN_USE_REPORT_GLOBALS 1
 
 /* Max number of threads for fakestack to track */
 /* TODO: this should be properly determined at compile time. */
-#define PLATFORM_ASAN_FASESTACK_THREAD_MAX 0
+#define PLATFORM_ASAN_FAKESTACK_THREAD_MAX (10) //(NENV + 1)
 
 /* Max fakestack entries of each class */
-#define PLATFORM_ASAN_FAKESTACK_CLASS_0_N  0
-#define PLATFORM_ASAN_FAKESTACK_CLASS_1_N  0
-#define PLATFORM_ASAN_FAKESTACK_CLASS_2_N  0
-#define PLATFORM_ASAN_FAKESTACK_CLASS_3_N  0
-#define PLATFORM_ASAN_FAKESTACK_CLASS_4_N  0
-#define PLATFORM_ASAN_FAKESTACK_CLASS_5_N  0
-#define PLATFORM_ASAN_FAKESTACK_CLASS_6_N  0
-#define PLATFORM_ASAN_FAKESTACK_CLASS_7_N  0
-#define PLATFORM_ASAN_FAKESTACK_CLASS_8_N  0
-#define PLATFORM_ASAN_FAKESTACK_CLASS_9_N  0
-#define PLATFORM_ASAN_FAKESTACK_CLASS_10_N 0
+#define PLATFORM_ASAN_FAKESTACK_CLASS_0_N  16//(1 << 5)
+#define PLATFORM_ASAN_FAKESTACK_CLASS_1_N  16//(1 << 4)
+#define PLATFORM_ASAN_FAKESTACK_CLASS_2_N  16//(1 << 4)
+#define PLATFORM_ASAN_FAKESTACK_CLASS_3_N  16//(1 << 4)
+#define PLATFORM_ASAN_FAKESTACK_CLASS_4_N  16//(1 << 4)
+#define PLATFORM_ASAN_FAKESTACK_CLASS_5_N  16//(1 << 4)
+#define PLATFORM_ASAN_FAKESTACK_CLASS_6_N  16//(1 << 4)
+#define PLATFORM_ASAN_FAKESTACK_CLASS_7_N  16//(1 << 4)
+#define PLATFORM_ASAN_FAKESTACK_CLASS_8_N  16//(1 << 3)
+#define PLATFORM_ASAN_FAKESTACK_CLASS_9_N  16//(1 << 2)
+#define PLATFORM_ASAN_FAKESTACK_CLASS_10_N 16//(1 << 1)
 
 /* Redzone size to the left of the allocated fake stack */
 #define PLATFORM_ASAN_FAKESTACK_LEFT_RED_SIZE 16

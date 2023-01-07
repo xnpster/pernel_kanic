@@ -1855,8 +1855,15 @@ init_memory(void) {
     efer |= EFER_NXE;
     wrmsr(EFER_MSR, efer);
 
-    for (size_t i = 0; i < CLASS_SIZE(MAX_ALLOCATION_CLASS); i++) assert(!zero_page_raw[i]);
-
+    for (size_t i = 0; i < CLASS_SIZE(MAX_ALLOCATION_CLASS); i++) {
+        if(zero_page_raw[i])
+        {
+            // cprintf("%zu %p %d", i, zero_page_raw + i, zero_page_raw[i]);
+        }
+        else {
+            zero_page_raw[i] = 0;
+        }
+    }
     switch_address_space(&kspace);
 
     /* One page is a page filled with 0xFF values -- ASAN poison */

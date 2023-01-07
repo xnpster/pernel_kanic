@@ -172,8 +172,9 @@ err:
     return res;
 }
 
-ssize_t
-read(int fdnum, void *buf, size_t n) {
+
+
+ssize_t internal_read(int fdnum, void *buf, size_t n) {
     int res;
 
     struct Fd *fd;
@@ -188,8 +189,20 @@ read(int fdnum, void *buf, size_t n) {
     }
 
     if (!dev->dev_read) return -E_NOT_SUPP;
-
+    // cprintf("bret fd:%p buf:%p\n", fd, buf);
     return (*dev->dev_read)(fd, buf, n);
+}
+
+#define READ_BUF (2 * 1024)
+ssize_t
+read(int fdnum, void *buf, size_t n) {
+    // char bbuf[READ_BUF];
+    // cprintf("bread\n");
+    ssize_t ret = internal_read(fdnum, buf, n);
+    // cprintf("bcpy\n");
+    // memcpy(buf, bbuf, n);
+    
+    return ret;
 }
 
 ssize_t

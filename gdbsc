@@ -1,0 +1,3 @@
+advance i386_init
+display *0x8043080e24
+watch *0x8043080e24

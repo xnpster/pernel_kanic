@@ -99,12 +99,12 @@ SET_SHADOW_DECLARE(f5)
 SET_SHADOW_DECLARE(f8)
 
 #define FAKESTACK_DECLARE(szclass)                                                                                     \
-    static uint8_t asan_fakestack_buffer_##szclass[PLATFORM_ASAN_FASESTACK_THREAD_MAX *                                \
+    static uint8_t asan_fakestack_buffer_##szclass[PLATFORM_ASAN_FAKESTACK_THREAD_MAX *                                \
                                                            PLATFORM_ASAN_FAKESTACK_CLASS_##szclass##_N *               \
                                                            FAKESTACK_CLASS_##szclass##_S +                             \
                                                    1]                                                                  \
             __attribute__((aligned(SHADOW_ALIGN)));                                                                    \
-    static asan_fakestack_config asan_fakestack_config_##szclass[PLATFORM_ASAN_FASESTACK_THREAD_MAX *                  \
+    static asan_fakestack_config asan_fakestack_config_##szclass[PLATFORM_ASAN_FAKESTACK_THREAD_MAX *                  \
                                                                          PLATFORM_ASAN_FAKESTACK_CLASS_##szclass##_N + \
                                                                  1];                                                   \
     uptr __asan_stack_malloc_##szclass(size_t sz) {                                                                    \

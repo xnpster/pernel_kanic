@@ -25,6 +25,11 @@ sys_cputs(const char *s, size_t len) {
 #endif
     /* Check that the user has permission to read memory [s, s+len).
     * Destroy the environment if not. */
+    
+    // cprintf("fmtptr is: %p, %zu\n", s, len);
+    // char c = s[0];
+    // cprintf("hello %c\n", c);
+
     user_mem_assert(curenv, s, len, PROT_R | PROT_USER_);
     cprintf("%.*s", (int)len, s);
     return 0;

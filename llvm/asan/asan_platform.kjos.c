@@ -36,7 +36,7 @@ platform_abort() {
 
 void
 platform_asan_init() {
-    asan_internal_shadow_start = (uint8_t *)SANITIZE_SHADOW_BASE - 0x40000000;
+    asan_internal_shadow_start = (uint8_t *)SANITIZE_SHADOW_BASE - 0x400000000;
     asan_internal_shadow_end = (uint8_t *)(SANITIZE_SHADOW_SIZE + SANITIZE_SHADOW_BASE);
     asan_internal_shadow_off = (uint8_t *)SANITIZE_SHADOW_OFF;
 
@@ -88,13 +88,22 @@ platform_asan_fatal(const char *msg, uptr p, size_t width, unsigned access_type)
     ASAN_ABORT();
 }
 
+static bool entered;
+
 bool
 platform_asan_fakestack_enter(uint32_t *thread_id) {
-    // TODO: implement!
+    *thread_id = 0;
+    if(entered) {
+        return false;
+    } else {
+        entered = true;
+        return true;
+    }
+
     return true;
 }
 
 void
 platform_asan_fakestack_leave() {
-    // TODO: implement!
+    entered = false;
 }

@@ -108,18 +108,18 @@ acpi_find_table(const char *sign) {
             /* ACPI 2.0 or higher is used */
             /* Validate checksum of full struct 
              * Calculate and validate checksum of first and second halfs*/
-            uint8_t checksum = 0;
+            uint64_t checksum = 0;
             uint8_t *iter;
             for (iter = (uint8_t *)rsdp; iter < (uint8_t *)&(rsdp->Length); iter++)
-                checksum += *iter;
+                checksum += *(iter);
 
-            if (checksum)
+            if ((uint8_t)checksum)
                 panic("Malformed RSDP");
 
             for (; iter < ((uint8_t *)rsdp + sizeof(*rsdp)); iter++)
                 checksum += *iter;
 
-            if (checksum)
+            if ((uint8_t)checksum)
                 panic("Malformed RSDP");
 
             rsdt_phys = rsdp->XsdtAddress;
@@ -132,7 +132,7 @@ acpi_find_table(const char *sign) {
             for (iter = (uint8_t *)rsdp; iter < (uint8_t *)&(rsdp->Length); iter++)
                 checksum += *iter;
 
-            if (checksum)
+            if ((uint8_t)checksum)
                 panic("Malformed RSDP");
             rsdt_phys = rsdp->RsdtAddress;
         }
@@ -142,11 +142,11 @@ acpi_find_table(const char *sign) {
         rsdt = mmio_map_region(rsdt_phys, rsdt->h.Length);
 
         /* Validate header checksum */
-        uint8_t checksum = 0;
+        uint64_t checksum = 0;
  
         for (int i = 0; i < rsdt->h.Length; i++)
             checksum += ((uint8_t *) &rsdt->h)[i];
-        if (checksum)
+        if ((uint8_t)checksum)
                 panic("Malformed RSDT header");
     }
 

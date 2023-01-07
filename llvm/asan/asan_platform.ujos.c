@@ -145,7 +145,7 @@ platform_asan_poison(void *addr, size_t size) {
 
 void
 platform_asan_fatal(const char *msg, uptr p, size_t width, unsigned access_type) {
-    ASAN_LOG("Fatal error: %s (addr 0x%lx within i/o size 0x%lx of type %u), tracing:",
+    ASAN_LOG("user Fatal error: %s (addr 0x%lx within i/o size 0x%lx of type %u), tracing:",
              msg, (long)p, (long)width, access_type);
 
     ASAN_DEBUG_BREAK();
@@ -170,13 +170,57 @@ platform_asan_fatal(const char *msg, uptr p, size_t width, unsigned access_type)
     ASAN_ABORT();
 }
 
+static int get_tid() {
+    return sys_getenvid();
+}
+
+static bool entered [PLATFORM_ASAN_FAKESTACK_THREAD_MAX];
+static int tids [PLATFORM_ASAN_FAKESTACK_THREAD_MAX];
+static int used_tids = 1;
+
 bool
 platform_asan_fakestack_enter(uint32_t *thread_id) {
-    // TODO: implement!
+    uint32_t tid = get_tid();
+    
+    int idx;
+    for(idx = 1; idx < used_tids; idx++)
+        if(tids[idx] == tid) break;
+    
+    if(used_tids == idx)
+    {
+        if(used_tids == PLATFORM_ASAN_FAKESTACK_THREAD_MAX)
+            panic("out of thread slots!");
+        tids[used_tids] = tid;
+        used_tids++;
+    }
+
+    *thread_id = idx;
+
+    if(entered[idx]) {
+        return false;
+    } else {
+        entered[idx] = true;
+        return true;
+    }
+
     return true;
 }
 
 void
 platform_asan_fakestack_leave() {
-    // TODO: implement!
+    int tid = get_tid();
+    
+    int idx;
+    for(idx = 1; idx < used_tids; idx++)
+        if(tids[idx] == tid) break;
+    
+    if(used_tids == idx)
+    {
+        panic("invalid leave!");
+    }
+
+    if(entered[idx] == false)
+        panic("unbalanced leave!");
+    
+    entered[idx] = false;
 }

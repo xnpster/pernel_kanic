@@ -41,9 +41,21 @@ syscall(uintptr_t num, bool check, uintptr_t a1, uintptr_t a2, uintptr_t a3, uin
     return ret;
 }
 
+
+#define PRINTBUFSZ 256*4
+
+void
+iternal_sys_cputs(const char *s, size_t len) {
+    char ss[PRINTBUFSZ];
+    memcpy(ss, s, len);
+    
+    syscall(SYS_cputs, 0, (uintptr_t)ss, len, 0, 0, 0, 0);
+}
+
+
 void
 sys_cputs(const char *s, size_t len) {
-    syscall(SYS_cputs, 0, (uintptr_t)s, len, 0, 0, 0, 0);
+    iternal_sys_cputs(s, len);
 }
 
 int

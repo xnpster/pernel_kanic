@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "asan.h": "c",
+        "asan_internal.h": "c",
+        "lib.h": "c"
+    }
+}

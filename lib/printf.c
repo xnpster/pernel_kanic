@@ -33,12 +33,17 @@ putch(int ch, struct printbuf *state) {
     state->count++;
 }
 
+void noasan_sys_cputs(struct printbuf state) {
+    struct printbuf state2 = state;
+    sys_cputs(state2.buf, state2.offset);
+}
+
 int
 vcprintf(const char *fmt, va_list ap) {
     struct printbuf state = {0};
 
     vprintfmt((void *)putch, &state, fmt, ap);
-    sys_cputs(state.buf, state.offset);
+    noasan_sys_cputs(state);
 
     return state.count;
 }

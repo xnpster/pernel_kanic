@@ -1,5 +1,7 @@
 # This is required for basic initialisation for UASAN itself
 fun:libmain
+fun:iternal_sys_cputs
+fun:read
 
 # UASAN itself should not be instrumented
 src:llvm/asan/*

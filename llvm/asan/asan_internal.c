@@ -97,7 +97,7 @@ asan_internal_fill_range(uptr base, size_t size, uint8_t value) {
             /* We are not aborting due to kernelspace memory! */
             //platform_asan_fatal("poison out of shadow range", base, size, 0);
             if (!failed_once) {
-                ASAN_LOG("Ignoring addr [%p:%p), out of shadow!", (void *)base, (void *)(base + size));
+                //ASAN_LOG("Ignoring addr [%p:%p), out of shadow!", (void *)base, (void *)(base + size));
                 failed_once = true;
             }
             continue;
@@ -153,11 +153,20 @@ uptr
 asan_internal_fakestack_alloc(asan_fakestack_config *configs, uint8_t *entries, size_t entryn, size_t entrysz, size_t realsz) {
     uint32_t thread_id = 0;
     if (!platform_asan_fakestack_enter(&thread_id))
+    {
+        // cprintf("leaved 1\n");
         return 0;
+    }
+
+
+    // cprintf("fakestack entryn is:%d!\n", (int)entryn);
+    // cprintf("fakestack thread is:%d!\n", (int)thread_id);
+
 
     configs = asan_internal_fakestack_get_t_configs(configs, thread_id, entryn);
     entries = asan_internal_fakestack_get_t_entries(entries, thread_id, entryn, entrysz);
 
+    
     size_t free = 0;
     while (free < entryn) {
         if (!configs[free].used)
@@ -169,10 +178,16 @@ asan_internal_fakestack_alloc(asan_fakestack_config *configs, uint8_t *entries, 
     /* No free entries exist atm */
     if (free == entryn) {
         platform_asan_fakestack_leave();
+        // cprintf("leaved 2\n");
         return 0;
     }
 
     uptr entry = (uptr)entries + free * entrysz;
+    
+    // if(thread_id > 0) {
+        // cprintf("fakestack tid:%d entryn:%d entries:%p entry:%p entend:%p!\n",(int) thread_id, (int)entryn, entries, entry, entry + entrysz);
+        // cprintf("config_start: %p, config_end:%p", configs + free, configs + free + 1);
+    // }
 
     configs[free].used = true;
     configs[free].realsz = realsz;
@@ -189,7 +204,8 @@ asan_internal_fakestack_alloc(asan_fakestack_config *configs, uint8_t *entries, 
     *used = &configs[free].used;
 
     platform_asan_fakestack_leave();
-
+    
+    // cprintf("leaved 3\n");
     return entry + pad;
 }
 
@@ -215,7 +231,7 @@ asan_internal_fakestack_unpoison() {
     if (rsp > KERN_STACK_TOP) return;
     uintptr_t stack_begin = rsp <= KERN_PF_STACK_TOP ? KERN_PF_STACK_TOP : KERN_STACK_TOP;
 #endif
-
+    // platform_asan_unpoison(rsp - PLATFORM_ASAN_FAKESTACK_LEFT_RED_SIZE, stack_begin - rsp + PLATFORM_ASAN_FAKESTACK_LEFT_RED_SIZE);
     /* Unpoison whole stack */
     asan_internal_fill_range(rsp - PLATFORM_ASAN_FAKESTACK_LEFT_RED_SIZE,
                              stack_begin - rsp + PLATFORM_ASAN_FAKESTACK_LEFT_RED_SIZE, 0);
