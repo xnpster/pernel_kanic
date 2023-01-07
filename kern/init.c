@@ -141,10 +141,8 @@ i386_init(void) {
     }
 
     pic_init();
-    rtc_timer_init();
-    //remove
-    //rtc_timer_pic_interrupt();
-    timers_init();    
+    timers_init();
+
     /* Framebuffer init should be done after memory init */
     fb_init();
     if (trace_init) cprintf("Framebuffer initialised\n");
@@ -153,17 +151,18 @@ i386_init(void) {
 
     /* User environment initialization functions */
     env_init();
-    
+
     /* Choose the timer used for scheduling: hpet or pit */
     timers_schedule("hpet0");
+
 #ifdef CONFIG_KSPACE
     /* Touch all you want */
-    ENV_CREATE_KERNEL_TYPE(prog_test1);
+    /*ENV_CREATE_KERNEL_TYPE(prog_test1);
     ENV_CREATE_KERNEL_TYPE(prog_test2);
     ENV_CREATE_KERNEL_TYPE(prog_test3);
     ENV_CREATE_KERNEL_TYPE(prog_test4);
     ENV_CREATE_KERNEL_TYPE(prog_test5);
-    ENV_CREATE_KERNEL_TYPE(prog_test6);
+    ENV_CREATE_KERNEL_TYPE(prog_test6);*/
 #else
 
 #if LAB >= 10

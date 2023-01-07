@@ -10,6 +10,8 @@
 
 .globl entry
 entry:
+    # LAB 4 code
+    # Mask interrupts for kernel
     cli
     # Set up kernel stack
     leaq bootstacktop(%rip),%rsp
@@ -17,13 +19,14 @@ entry:
 
     # Save LoadParams in uefi_lp.
     movq %rcx, uefi_lp(%rip)
-    
+
     # Invoke C code
     call i386_init
     # Should never reach this place
     jmp .
 
 #ifdef CONFIG_KSPACE
+
 .global save_trapframe_trap
 save_trapframe_trap:
     popq save_trapframe_ret(%rip)
@@ -66,17 +69,23 @@ save_trapframe:
 .globl sys_yield
 .type  sys_yield, @function
 sys_yield:
+    # LAB 4 code
+    # Mask interrupts for kernel
     cli
     call save_trapframe_syscall
     call csys_yield
     jmp .
 
+# LAB 3: Your code here:
 .globl sys_exit
 .type  sys_exit, @function
 sys_exit:
+    # LAB 4 code
+    # Mask interrupts for kernel
     cli
+    leaq (bootstacktop)(%rip), %rsp
+    xor %ebp, %ebp
     call csys_exit
-    call csys_yield
     jmp .
 
 #endif
