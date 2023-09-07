@@ -1,0 +1,79 @@
+/* Simple linker script for the JOS kernel.
+   See the GNU ld 'info' manual ("info ld") to learn the syntax. */
+
+OUTPUT_FORMAT("elf64-x86-64", "elf64-x86-64", "elf64-x86-64")
+OUTPUT_ARCH(i386:x86-64)
+ENTRY(_head64)
+
+SECTIONS
+{
+  . = @KERNPHYSSTART@ - 0x100000;
+
+  .boot.text : ALIGN(0x1000) {
+    obj/kern/bootstrap.o (.text)
+  }
+
+  .boot.data : ALIGN(0x1000) {
+    obj/kern/bootstrap.o (.data .bss)
+  }
+
+  . = @KERNSTART@ + @KERNPHYSSTART@;
+
+  /* AT(...) gives the load address of this section, which tells
+     the boot loader where to load the kernel in physical memory */
+  .text : AT(@KERNPHYSSTART@) {
+    __text_start = .;
+    *(EXCLUDE_FILE(*obj/kern/bootstrap.o) .text .stub .text.* .gnu.linkonce.t.*)
+    . = ALIGN(8);
+    __text_end = .;
+
+    PROVIDE(etext = .); /* Define the 'etext' symbol to this value */
+
+    __rodata_start = .;
+    *(EXCLUDE_FILE(*obj/kern/bootstrap.o) .rodata .rodata.* .gnu.linkonce.r.* .data.rel.ro.local)
+    /* Ensure page-aligned segment size */
+    . = ALIGN(0x1000);
+    __rodata_end = .;
+  }
+
+  /* The data segment */
+  /* Adjust the address for the data segment to the next page */
+  .data : ALIGN(0x1000) {
+    __data_start = .;
+    *(EXCLUDE_FILE(obj/kern/bootstrap.o) .data .got.plt .data.* .got)
+    . = ALIGN(8);
+    __data_end = .;
+
+    __ctors_start = .;
+    KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
+    KEEP(* (.init_array .ctors))
+    __ctors_end = .;
+    . = ALIGN(8);
+
+    __dtors_start = .;
+    KEEP(*(SORT_BY_INIT_PRIORITY(.fini_array.*) SORT_BY_INIT_PRIORITY(.dtors.*)))
+    KEEP(*(.fini_array .dtors))
+    __dtors_end = .;
+    /* Ensure page-aligned segment size */
+    . = ALIGN(0x1000);
+  }
+
+  PROVIDE(edata = .);
+
+  /* The bss segment */
+  /* Separate from .data due to higher alignment requirements in pmap.c */
+  .bss : ALIGN(0x1000) {
+    __bss_start = .;
+    *(EXCLUDE_FILE(obj/kern/bootstrap.o) .bss)
+    *(COMMON)
+    /* Ensure page-aligned segment size */
+    . = ALIGN(0x1000);
+    __bss_end = .;
+  }
+
+  PROVIDE(end = .);
+
+  /DISCARD/ : {
+    *(.interp .eh_frame .note.*)
+  }
+}
