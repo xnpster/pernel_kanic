@@ -111,7 +111,7 @@ InitGraphics (
   // Refer to Graphics Output Protocol description in UEFI spec for
   // more details.
   //
-  // Hint: Use GetMode/SetMode functions.
+  // Hint: Use QueryMode/SetMode functions.
   //
 
   //
