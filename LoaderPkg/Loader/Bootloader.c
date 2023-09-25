@@ -256,11 +256,16 @@ GetKernelFile (
   OUT  EFI_FILE_PROTOCOL  **FileProtocol
   )
 {
-  EFI_STATUS                       Status = EFI_UNSUPPORTED;
+  EFI_STATUS                       Status;
   EFI_LOADED_IMAGE_PROTOCOL        *LoadedImage;
   EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem;
   EFI_FILE_PROTOCOL                *CurrentDriveRoot;
   EFI_FILE_PROTOCOL                *KernelFile;
+
+  //
+  // set Status to suppress incorrect compiler/analyzer warnings
+  //
+  Status  = EFI_UNSUPPORTED;
 
   ASSERT (FileProtocol != NULL);
 

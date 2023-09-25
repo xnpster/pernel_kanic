@@ -34,22 +34,22 @@
  *                     |                              | RW/--
  *                     |   Remapped Physical Memory   | RW/--
  *                     |                              | RW/--
- * KERN_BASE_ADDR,-->  +------------------------------+ 0x8040000000    --+
+ * KERN_BASE_ADDR,-->  +------------------------------+ 0x8040000000          <--+
  * KERN_STACK_TOP      |     CPU0's Kernel Stack      | RW/--  KERN_STACK_SIZE   |
- *                     | - - - - - - - - - - - - - - -|                   |
+ *                     | - - - - - - - - - - - - - - -|                          |
  *                     |      Invalid Memory (*)      | --/--  KERN_STACK_GAP    |
- *                     +------------------------------+                   |
- *    KERN_PF_STACK_TOP      |       CPU0's #PF Stack       | RW/--  KERN_PF_STACK_SIZE |
- *                     | - - - - - - - - - - - - - - -|                   |
+ *                     +------------------------------+                          |
+ * KERN_PF_STACK_TOP-> |       CPU0's #PF Stack       | RW/--  KERN_PF_STACK_SIZE|
+ *                     | - - - - - - - - - - - - - - -|                          |
  *                     |      Invalid Memory (*)      | --/--  KERN_STACK_GAP    |
- *                     +------------------------------+                   |
+ *                     +------------------------------+                          |
  *                     |     CPU1's Kernel Stack      | RW/--  KERN_STACK_SIZE   |
- *                     | - - - - - - - - - - - - - - -|                 HUGE_PAGE_SIZE
+ *                     | - - - - - - - - - - - - - - -|                   HUGE_PAGE_SIZE
  *                     |      Invalid Memory (*)      | --/--  KERN_STACK_GAP    |
- *                     +------------------------------+                   |
- *                     :              .               :                   |
- *                     :              .               :                   |
- *  KERN_HEAP_END -->  +------------------------------+ 0x803fe00000    --+
+ *                     +------------------------------+                          |
+ *                     :              .               :                          |
+ *                     :              .               :                          |
+ *  KERN_HEAP_END -->  +------------------------------+ 0x803fe00000          <--+
  *                     |       Memory-mapped I/O      | RW/--  HUGE_PAGE_SIZE
  * MAX_USER_READABLE, KERN_HEAP_START -->  +------------------------------+ 0x803fc00000
  *                     |          RO PAGES            | R-/R-
