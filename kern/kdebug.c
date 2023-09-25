@@ -6,6 +6,7 @@
 #include <inc/x86.h>
 
 #include <kern/kdebug.h>
+#include <kern/env.h>
 #include <inc/uefi.h>
 
 void

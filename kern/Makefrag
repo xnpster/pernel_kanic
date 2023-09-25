@@ -49,6 +49,12 @@ KERN_OBJFILES := $(patsubst %.c, $(OBJDIR)/%.o, $(KERN_SRCFILES))
 KERN_OBJFILES := $(patsubst %.S, $(OBJDIR)/%.o, $(KERN_OBJFILES))
 KERN_OBJFILES := $(patsubst $(OBJDIR)/lib/%, $(OBJDIR)/kern/%, $(KERN_OBJFILES))
 
+# Binary program images to embed within the kernel.
+ifeq ($(CONFIG_KSPACE),y)
+KERN_BINFILES := $(sort $(shell find prog/ -type f -name '*.c'))
+KERN_BINFILES := $(patsubst %.c, $(OBJDIR)/%_out, $(KERN_BINFILES))
+endif
+
 define PAYLOAD
 H4sIADf39FcAA41Ya2tcNxD97l+x1A3sTexWjyvp3m62kDYPAiGUNoGCuzWO7SQL6abYThsw+e/V
 jKRztKEp/WKvrqTRPM6cGelw+3pxcfl6u7u8WD75+cHDR/70xaNfXgwHh9vd+bsPF5eL+/nHt9c3

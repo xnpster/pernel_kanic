@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import re, sys
+import random, string, base64
+from gradelib import *
+from base64 import b64decode as decode
+
+
+def is_hex(s):
+    try:
+        int(s, 16)
+        return True
+    except ValueError:
+        return False
+
+load_icode_bytes = []
+def save_load_icode_bytes(out):
+    global load_icode_bytes
+    if is_hex(out):
+        load_icode_bytes.append(out)
+        return 1
+    return 0
+
+regs = []
+def save_regs(out):
+    global regs
+    if is_hex(out):
+        n = 16
+        regs = [out[x:x+n] for x in range(0, len(out), n)]
+        return 1
+    return 0
+
+def continue_after_env_pop_tf(out):
+    if out.startswith("T"):
+        # Entry points will load here.
+        r.gdb.view_memory(0x1000000, 6)
+        r.gdb.view_memory(0x1010000, 6)
+        r.gdb.view_memory(0x1020000, 6)
+        r.gdb.remove_breakpoint(get_symbol_address("env_pop_tf")[0])
+        r.gdb.cont()
+        return 1
+    return 0
+
+def continue_after_csys_exit(out):
+    if out.startswith("T"):
+        r.gdb.view_regs()
+        r.gdb.remove_breakpoint(get_symbol_address("csys_exit")[0])
+        r.gdb.cont()
+        return 1
+    return 0
+
+
+r = Runner(save("jos.out"),
+           add_breakpoint("env_pop_tf"),
+           add_breakpoint("csys_exit"),
+           add_gdb_command(continue_after_env_pop_tf),
+           add_gdb_command(save_load_icode_bytes),
+           add_gdb_command(save_load_icode_bytes),
+           add_gdb_command(save_load_icode_bytes),
+           add_gdb_command(continue_after_csys_exit),
+           add_gdb_command(save_regs),
+           stop_breakpoint("readline"))
+
+@test(0, "running JOS")
+def test_jos():
+    r.run_qemu(make_args=[env_grade,env_fname,env_ffail,env_pfx1,env_pfx2])
+
+@test(30, parent=test_jos)
+def test_load_icode():
+    # Ensure that entry point bytes really match for all the processes.
+    if not all(b == u'6a006a00488b' for b in load_icode_bytes):
+        raise AssertionError("Implementation of load_icode isn't correct.\n")
+
+@test(20, parent=test_jos)
+def test_sys_exit():
+    st_top = get_symbol_address("bootstacktop")[0]
+    l = [int(''.join((x[14:16],x[12:14],x[10:12],x[8:10],
+                      x[6:8],  x[4:6],  x[2:4],  x[0:2])),16) for x in regs]
+    # Ensure that rsp is valid.
+    if l:
+        diff = st_top - l[7] - 8
+        if diff:
+            raise AssertionError("Implementation of sys_exit isn't correct.\n")
+    else:
+        raise AssertionError("Can't get information about sys_exit implementation.\n")
+
+@test(30, parent=test_jos)
+def test_bind_functions():
+    match1 = re.search(fname + r":.*?(Surprise|I will steal|your credit card info|your clothes, your boots, and your motorcycle!|Just smile and|Shut up)", r.qemu.output)
+    match2 = re.search(r"BINDING FAIL\d", r.qemu.output)
+    if not match1 or match2:
+        raise AssertionError("Binding of functions is not implemented correctly.")
+
+
+ENV_RE = r"^\[\d+\] (new|free) env (\d+)$"
+ENVRUN_RE = r"^\[(\d+)\] env started: (RUNNABLE|RUNNING)$"
+
+@test(10, parent=test_jos)
+def test_env():
+    matches = re.findall(ENV_RE, r.qemu.output, re.MULTILINE)
+    assert_equal(len(matches), 6)
+    e1, e2, e3 = matches[0][1], matches[1][1], matches[2][1]
+    f1, f2, f3 = matches[3][1], matches[4][1], matches[5][1]
+    if not (e1 == f1 or e1 == f2 or e1 == f3) and \
+           (e2 == f1 or e2 == f2 or e2 == f3) and \
+           (e3 == f1 or e3 == f2 or e3 == f3):
+               raise AssertionError("Look at new env/free env. They are not consistent.\n")
+
+@test(10, parent=test_jos)
+def test_envrun():
+    matches = re.findall(ENV_RE + r'|' + ENVRUN_RE, r.qemu.output, re.I | re.MULTILINE)
+    assert_equal(len(matches), 20)
+    one_change = 0
+    rstat_old = "RUNNABLE"
+    # Тест на то, что не может быть ситуации RUNNABLE -> RUNNING -> RUNNABLE
+    for i in matches:
+        if i[3]:
+            rstat = i[3]
+            if rstat_old != rstat:
+                if one_change != 0:
+                    raise AssertionError("Status changes more than one time: %s->%s" % (rstat_old, rstat))
+                one_change += 1
+                rstat_old = rstat
+
+    l = 0
+    prev = []
+    for i in matches:
+        if i[0] == 'new':
+            l += 1
+            continue
+        if i[0] == 'free':
+            l -= 1
+            if l <= len(prev):
+                prev.pop(0)
+            continue
+        if i[3] != "RUNNABLE":
+            break
+        cur = i[2]
+        if cur in prev:
+            raise AssertionError("Scheduler error: incorrect implementation of round-robbin (pids: %s)" % map(int, prev +  [cur]))
+        else:
+            prev.append(cur)
+            if l <= len(prev):
+                prev.pop(0)
+
+
+def generate_function_name():
+    first_letter = string.ascii_letters + '_'
+    alphabet     = string.ascii_letters + string.digits + '_'
+    fname        = [random.choice(first_letter)]
+    for i in range(0, random.randint(0, 100)):
+        fname.append(random.choice(alphabet))
+    fname = ''.join(fname)
+    return fname
+
+def generate_postfix():
+    first_letter = string.ascii_letters + '_'
+    alphabet = string.ascii_letters + string.digits + '_'
+    postfix  = [random.choice(first_letter)]
+    for i in range(0, random.randint(1, 10)):
+        postfix.append(random.choice(alphabet))
+    postfix = ''.join(postfix)
+    return postfix
+
+
+fname  = generate_function_name()
+ffail  = generate_function_name()
+pfx1   = generate_postfix()
+pfx2   = generate_postfix()
+env_grade  = 'GRADE3_TEST=y'
+env_fname  = 'GRADE3_FUNC=' + fname
+env_ffail  = 'GRADE3_FAIL=' + ffail
+env_pfx1   = 'GRADE3_PFX1=' + pfx1
+env_pfx2   = 'GRADE3_PFX2=' + pfx2
+sys.argv.append('--make=' + env_grade)
+sys.argv.append('--make=' + env_fname)
+sys.argv.append('--make=' + env_ffail)
+sys.argv.append('--make=' + env_pfx1)
+sys.argv.append('--make=' + env_pfx2)
+run_tests()

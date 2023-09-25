@@ -224,6 +224,11 @@ $(OBJDIR)/.vars.%: FORCE
 # Include Makefrags for subdirectories
 include kern/Makefrag
 include lib/Makefrag
+ifeq ($(CONFIG_KSPACE),y)
+include prog/Makefrag
+else
+include user/Makefrag
+endif
 
 QEMUOPTS = -hda fat:rw:$(JOS_ESP) -serial mon:stdio -gdb tcp::$(GDBPORT)
 QEMUOPTS += -m 512M -d int,cpu_reset,mmu,pcall -no-reboot

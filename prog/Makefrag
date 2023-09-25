@@ -1,0 +1,29 @@
+OBJDIRS += prog
+
+PROGLIBS = jos
+
+.SECONDARY: $(patsubst %, %.ld, $(KERN_BINFILES)) $(patsubst %_out, %, $(KERN_BINFILES))
+
+$(OBJDIR)/prog/%.o: prog/%.c $(OBJDIR)/.vars.USER_CFLAGS
+	@echo + cc[PROG] $<
+	@mkdir -p $(@D)
+	$(V)$(CC) $(USER_CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/prog/%.ld: prog/prog.ld
+	@echo + GEN: $@
+	@mkdir -p $(@D)
+	@sed "s/#ADDRESS#/$$(ls prog/*.c | nl -v 16777216 -i 65536 | grep $$(basename $@ .ld).c | cut -f1)/" $^ > $@
+
+$(OBJDIR)/prog/%: $(OBJDIR)/prog/%.o $(OBJDIR)/prog/%.ld $(OBJDIR)/lib/entry.o $(PROGLIBS:%=$(OBJDIR)/lib/lib%.a)
+	@echo + ld $@
+	$(V)$(LD) -o $@ -T $@.ld $(LDFLAGS) -nostdlib $(OBJDIR)/lib/entry.o $@.o -L$(OBJDIR)/lib $(PROGLIBS:%=-l%) $(GCC_LIB)
+	$(V)$(OBJDUMP) -S $@ > $@.asm
+	$(V)$(NM) -n $@ > $@.sym
+
+$(OBJDIR)/prog/%_out.S: $(OBJDIR)/prog/%
+	@echo + GEN $@
+	$(V)$(PERL) -e 'my $$file = "$<"; print ".data\n"; my $$sym = $$file; $$sym  =~ s/^.*\/([^\/]+)$$/\1/; print ".align 16\n.globl _binary_obj_prog_$${sym}_start\n_binary_obj_prog_$${sym}_start:\n"; print ".incbin \"$$file\"\n"; print ".globl _binary_obj_prog_$${sym}_end\n_binary_obj_prog_$${sym}_end:\n"; my $$size = (stat $$file)[7]; print ".globl _binary_obj_prog_$${sym}_size\n_binary_obj_prog_$${sym}_size:\n"; print ".word $$size\n";' > $@
+
+$(OBJDIR)/prog/%_out: $(OBJDIR)/prog/%_out.S
+	@echo + build $@
+	$(V)$(CC) $(USER_CFLAGS) -c -o $@ $<
