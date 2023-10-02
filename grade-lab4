@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import re, sys
+import random, string, base64, time
+from gradelib import *
+from base64 import b64decode as decode
+
+
+def is_hex(s):
+    try:
+        int(s, 16)
+        return True
+    except ValueError:
+        return False
+
+clock_thdlr_addr = 0
+envrun_running = 0
+def set_breakpoint_on_clock(line):
+    global envrun_running, clock_thdlr_addr
+    if envrun_running == 0:
+        clock_thdlr_addr = get_symbol_address("clock_thdlr")[0]
+    r.gdb.breakpoint(clock_thdlr_addr)
+    envrun_running += 1
+
+run = 10
+time_diff = []
+def measure_time(out):
+    global run, time_diff
+    if out.startswith("T"):
+        if run == 0:
+            raise TerminateTest
+        if run % 2 == 0:
+            time_diff.append(time.time())
+        else:
+            time_diff[-1] = time.time() - time_diff[-1]
+        run -= 1
+        r.gdb.cont()
+    return 0
+
+res = []
+def save_res(out):
+    global res
+    if is_hex(out):
+        res.append(out)
+        return 1
+    return 0
+
+
+def continue_after_i386_init(out):
+    if out.startswith("T"):
+        for x in ['_head64', 'save_trapframe_trap', 'sys_yield', 'sys_exit']:
+            r.gdb.view_memory(get_symbol_address(x)[0], 1)
+        r.gdb.remove_breakpoint(get_symbol_address("i386_init")[0])
+        r.gdb.cont()
+        return 1
+    return 0
+
+
+r = Runner(save("jos.out"),
+           add_breakpoint("i386_init"),
+           call_on_line(r"\[00001003\] env started: RUNNING", set_breakpoint_on_clock),
+           add_gdb_command(continue_after_i386_init),
+           add_gdb_command(save_res),
+           add_gdb_command(save_res),
+           add_gdb_command(save_res),
+           add_gdb_command(save_res),
+           add_gdb_command(measure_time))
+
+@test(0, "running JOS")
+def test_jos():
+    #r.run_qemu(target_base="qemu-oscheck")
+    print(color("yellow", "Please, be patient. It takes from 10 to 20 seconds to run the tests."))
+    r.run_qemu()
+
+@test(10, parent=test_jos)
+def test_cli():
+    e = True
+    if len(res) == 4:
+        e = False
+        if res[0] != u'fa' or res[3] != u'fa':
+            e = True
+        if res[1] != u'fa' and res[2] != u'fa':
+            e = True
+    if e:
+        raise AssertionError("cli check isn't passed.\n")
+
+@test(10, parent=test_jos)
+def test_enabled_interrupts():
+    m = re.search(r'^enabled interrupts: 2 8$', r.qemu.output, re.MULTILINE)
+    if not m:
+        raise AssertionError("Clock IRQ is masked on controller.\n")
+
+@test(40, parent=test_jos)
+def test_rtc():
+    if envrun_running == 0:
+        raise AssertionError("RTC isn't working.\n")
+
+@test(40, parent=test_jos)
+def test_frequency():
+    if len(time_diff):
+        avr = sum(time_diff) / len(time_diff)
+        if not (0.47 < avr and avr < 0.53):
+            raise AssertionError("RTC should fire interrupts once in 0.5s (measured time: %.2fs)\n" % avr)
+    else:
+        raise AssertionError("Can't measure frequency of RTC interrupts.\n")
+
+
+run_tests()
