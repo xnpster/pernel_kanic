@@ -5,8 +5,20 @@ LIB_SRCFILES :=		lib/libmain.c \
 			lib/string.c \
 			lib/readline.c
 
+ifeq ($(CONFIG_KSPACE),y)
+LIB_SRCFILES +=		lib/random.c \
+			lib/random_data.c
+endif
+
 LIB_OBJFILES := $(patsubst lib/%.c, $(OBJDIR)/lib/%.o, $(LIB_SRCFILES))
 LIB_OBJFILES := $(patsubst lib/%.S, $(OBJDIR)/lib/%.o, $(LIB_OBJFILES))
+
+.PHONY: lib/random_data.c
+
+lib/random_data.c:
+	@echo + GEN $@
+	@mkdir -p $(@D)
+	xxd -i -l 100 /dev/urandom $@
 
 $(OBJDIR)/lib/%.o: lib/%.c $(OBJDIR)/.vars.USER_CFLAGS
 	@echo + cc[USER] $<

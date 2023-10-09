@@ -7,14 +7,49 @@
 #include <inc/memlayout.h>
 
 #include <kern/monitor.h>
+#include <kern/tsc.h>
 #include <kern/console.h>
 #include <kern/env.h>
+#include <kern/timer.h>
 #include <kern/trap.h>
 #include <kern/sched.h>
 #include <kern/picirq.h>
 #include <kern/kclock.h>
 #include <kern/kdebug.h>
 #include <kern/traceopt.h>
+
+void
+timers_init(void) {
+    timertab[0] = timer_rtc;
+    timertab[1] = timer_pit;
+    timertab[2] = timer_acpipm;
+    timertab[3] = timer_hpet0;
+    timertab[4] = timer_hpet1;
+
+    for (int i = 0; i < MAX_TIMERS; i++) {
+        if (timertab[i].timer_init) {
+            timertab[i].timer_init();
+            if (trace_init) cprintf("Initialized timer %s\n", timertab[i].timer_name);
+        }
+    }
+}
+
+void
+timers_schedule(const char *name) {
+    for (int i = 0; i < MAX_TIMERS; i++) {
+        if (timertab[i].timer_name && !strcmp(timertab[i].timer_name, name)) {
+            if (!timertab[i].enable_interrupts) {
+                panic("Timer %s does not support interrupts\n", name);
+            }
+
+            timer_for_schedule = &timertab[i];
+            timertab[i].enable_interrupts();
+            return;
+        }
+    }
+
+    panic("Timer %s does not exist\n", name);
+}
 
 pde_t *
 alloc_pd_early_boot(void) {
@@ -98,14 +133,15 @@ i386_init(void) {
      * Can't call cprintf until after we do this! */
     cons_init();
 
+    tsc_calibrate();
+
     if (trace_init) {
         cprintf("6828 decimal is %o octal!\n", 6828);
         cprintf("END: %p\n", end);
     }
 
     pic_init();
-    rtc_timer_init();
-    rtc_timer_pic_interrupt();
+    timers_init();
 
     /* Framebuffer init should be done after memory init */
     fb_init();
@@ -116,12 +152,17 @@ i386_init(void) {
     /* User environment initialization functions */
     env_init();
 
+    /* Choose the timer used for scheduling: hpet or pit */
+    timers_schedule("hpet0");
+
 #ifdef CONFIG_KSPACE
     /* Touch all you want */
     ENV_CREATE_KERNEL_TYPE(prog_test1);
     ENV_CREATE_KERNEL_TYPE(prog_test2);
     ENV_CREATE_KERNEL_TYPE(prog_test3);
     ENV_CREATE_KERNEL_TYPE(prog_test4);
+    ENV_CREATE_KERNEL_TYPE(prog_test5);
+    ENV_CREATE_KERNEL_TYPE(prog_test6);
 #else
 
 #if LAB >= 10

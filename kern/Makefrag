@@ -24,14 +24,21 @@ KERN_SRCFILES := kern/bootstrap.S \
 			kern/printf.c \
 			kern/trap.c \
 			kern/trapentry.S \
+			kern/timer.c \
 			kern/sched.c \
 			kern/syscall.c \
 			kern/kdebug.c \
 			lib/printfmt.c \
 			lib/readline.c \
 			lib/string.c \
+			kern/tsc.c \
 			kern/uefi.c \
-			kern/uefiasm.S
+			kern/uefiasm.S \
+			kern/spinlock.c
+
+ifeq ($(CONFIG_KSPACE),y)
+KERN_SRCFILES += kern/alloc.c
+endif
 
 # Only build files if they exist.
 KERN_SRCFILES := $(wildcard $(KERN_SRCFILES))

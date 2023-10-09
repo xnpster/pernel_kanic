@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import re, sys
+import random, string, time
+from gradelib import *
+
+
+def is_hex(s):
+    try:
+        int(s, 16)
+        return True
+    except ValueError:
+        return False
+
+def send_term(line):
+    raise TerminateTest
+
+sleep_set = [-1, -1, -1]
+sleep_got = [-1, -1, -1]
+def send_timer_commands(line, timer):
+    def qemu_write(st):
+        r.qemu.proc.stdin.write(st.encode("ascii"))
+        r.qemu.proc.stdin.flush()
+    global sleep_set
+    if sleep_set[0] < 0:
+        sleep_set[0] = random.randint(3, 7)
+    qemu_write(f"timer_stop\n");
+    qemu_write(f"timer_start {timer}\n")
+    time.sleep(sleep_set[0])
+    if sleep_set[1] < 0:
+        sleep_set[1] = random.randint(3, 7)
+    qemu_write(f"timer_start {timer}\n")
+    time.sleep(sleep_set[1])
+    qemu_write(f"timer_stop\n")
+    if sleep_set[2] < 0:
+        sleep_set[2] = random.randint(5, 10)
+    qemu_write(f"timer_start {timer}\n")
+    time.sleep(sleep_set[2])
+    qemu_write(f"timer_stop\n")
+    qemu_write(f"undef {timer}\n")
+
+def change_execution_flow(out):
+    if is_hex(out):
+        sh = "%016x" % get_symbol_address("sched_halt")[0]
+        regs = out[:256] + sh[14:16] + sh[12:14] + sh[10:12] + sh[8:10] +\
+            sh[6:8] + sh[4:6] + sh[2:4] + sh[0:2] + out[272:]
+        r.gdb.update_regs(regs)
+        r.gdb.cont()
+        return 1
+    return 0
+
+def view_regs_at_env_init(out):
+    if out.startswith("T"):
+        r.gdb.view_regs()
+        return 1
+    return 0
+
+
+r = Runner(save("jos.out"),
+           add_breakpoint("env_init"),
+           add_gdb_command(view_regs_at_env_init),
+           add_gdb_command(change_execution_flow),
+           call_on_line(r'Type', lambda l: send_timer_commands(l, 'pit')),
+           call_on_line(r'Type', lambda l: send_timer_commands(l, 'hpet0')),
+           call_on_line(r'Type', lambda l: send_timer_commands(l, 'pm')),
+           call_on_line(r'K> undef pm', send_term))
+
+@test(0, "running JOS")
+def test_jos():
+    print(color("yellow", "Please, be patient. It takes from 10 to 60 seconds to run the tests."))
+    r.run_qemu()
+
+def check_stop_without_start(line):
+    assert_equal(line, "Timer Error")
+    return 1
+
+def check_stop_time(line, index):
+    i = 0
+    try:
+        i = int(line)
+    except:
+        raise AssertionError("String %s is not an integer\n" % line)
+    # FIXME: We really need to make measurement more reliable.
+    seconds = sleep_set[index]
+    if i != seconds and (i < seconds - 2 or i > seconds + 2):
+        assert_equal(i, seconds)
+    if sleep_got[index] < 0:
+        sleep_got[index] = i
+    # elif sleep_got[index] != i:
+    #     assert_equal(sleep_got[index], i)
+    return 1
+
+def check_start_after_start(line, timer):
+    assert_equal(line, "K> timer_start {}".format(timer))
+    return 1
+
+@test(100, parent=test_jos)
+def test_timer():
+    start = 0
+    stop  = 0
+    l = r.qemu.output.splitlines()
+    checks = 0
+    for i in range(0, len(l)):
+        if l[i] == 'K> timer_stop':
+            if stop % 3 == 0:
+                checks += check_stop_without_start(l[i+1])
+            elif stop % 3 == 1:
+                checks += check_stop_time(l[i+1], 1)
+            elif stop % 3 == 2:
+                checks += check_stop_time(l[i+1], 2)
+            else:
+                raise AssertionError("Unknown timer_stop.\n")
+            stop += 1
+        elif l[i] == 'K> timer_start pit':
+            if start == 0: checks += check_start_after_start(l[i+1], 'pit')
+            start += 1
+        elif l[i] == 'K> timer_start hpet0':
+            if start == 3: checks += check_start_after_start(l[i+1], 'hpet0')
+            start += 1
+        elif l[i] == 'K> timer_start pm':
+            if start == 6: checks += check_start_after_start(l[i+1], 'pm')
+            start += 1
+    if checks != 12:
+        raise AssertionError("Executed only {} checks out 12. Check monitor commands timer_start/timer_stop.\n".format(checks))
+
+run_tests()

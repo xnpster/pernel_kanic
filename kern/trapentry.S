@@ -18,4 +18,13 @@ clock_thdlr:
     call trap
     jmp .
 
+.globl timer_thdlr
+.type timer_thdlr, @function
+timer_thdlr:
+    call save_trapframe_trap
+    # Set trap code for trapframe
+    movl $(IRQ_OFFSET + IRQ_TIMER), 136(%rsp)
+    call trap
+    jmp .
+
 #endif
