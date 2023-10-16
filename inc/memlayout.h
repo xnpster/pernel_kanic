@@ -135,7 +135,7 @@
  */
 
 /* User read-only virtual page table (see 'uvpt' below) */
-#define UVPT_INDEX 2ULL
+#define UVPT_INDEX 255ULL
 #define UVPT       (UVPT_INDEX << PML4_SHIFT)
 #define UVPD       (UVPT + (UVPT_INDEX << PDP_SHIFT))
 #define UVPDP      (UVPD + (UVPT_INDEX << PD_SHIFT))

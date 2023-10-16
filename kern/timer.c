@@ -9,6 +9,7 @@
 #include <kern/kclock.h>
 #include <kern/picirq.h>
 #include <kern/trap.h>
+#include <kern/pmap.h>
 
 #define kilo      (1000ULL)
 #define Mega      (kilo * kilo)

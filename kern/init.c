@@ -9,6 +9,7 @@
 #include <kern/monitor.h>
 #include <kern/tsc.h>
 #include <kern/console.h>
+#include <kern/pmap.h>
 #include <kern/env.h>
 #include <kern/timer.h>
 #include <kern/trap.h>
@@ -140,14 +141,15 @@ i386_init(void) {
         cprintf("END: %p\n", end);
     }
 
+    /* Lab 6 memory management initialization functions */
+    init_memory();
+
     pic_init();
     timers_init();
 
     /* Framebuffer init should be done after memory init */
     fb_init();
     if (trace_init) cprintf("Framebuffer initialised\n");
-
-    trap_init();
 
     /* User environment initialization functions */
     env_init();

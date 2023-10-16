@@ -18,6 +18,7 @@ KERN_SRCFILES := kern/bootstrap.S \
 			kern/dwarf.c \
 			kern/dwarf_lines.c \
 			kern/monitor.c \
+			kern/pmap.c \
 			kern/env.c \
 			kern/kclock.c \
 			kern/picirq.c \
