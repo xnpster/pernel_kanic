@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+from gradelib import *
+
+r = Runner(save("jos.out"),
+           stop_breakpoint("readline"))
+
+@test(0, "running JOS")
+def test_jos():
+    r.run_qemu()
+
+@test(20, "Allocator init", parent=test_jos)
+def test_check_page():
+    r.match(r"Memory allocator is initialized",
+            r"Physical memory tree is correct")
+
+@test(40, "Page management", parent=test_jos)
+def test_check_kern_pgdir():
+    r.match(r"Physical memory tree is still correct")
+
+@test(40, "Kernel page directory", parent=test_jos)
+def test_check_page_installed_pgdir():
+    r.match(r"Kernel virtual memory tree is correct")
+
+run_tests()

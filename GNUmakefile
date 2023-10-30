@@ -155,6 +155,44 @@ CFLAGS += $(EXTRA_CFLAGS)
 CFLAGS += -mno-sse -mno-sse2 -mno-mmx
 
 
+KERN_SAN_CFLAGS :=
+KERN_SAN_LDFLAGS :=
+
+ifdef KASAN
+
+CFLAGS += -DSAN_ENABLE_KASAN
+
+# ***ITS REGEX TIME!***
+# Instead of trying to keep all these addresses in sync
+# just find them
+
+# We need to find KERN_SHADOW_BASE and KERN_BASE_ADDR separately
+# since SANITIZE_SHADOW_OFF is defined in terms of them and we need evaluated equvaluent
+
+KERNBASE := $(shell sed -n 's/^\#define KERN_BASE_ADDR \(.*\)/\1/p' inc/memlayout.h)
+KERN_SHADOW_BASE := $(shell sed -n 's/^\#define SANITIZE_SHADOW_BASE \(.*\)/\1/p' inc/memlayout.h)
+
+KERN_SAN_CFLAGS := -fsanitize=address -fsanitize-blacklist=llvm/blacklist.txt -mllvm
+KERN_SAN_CFLAGS += $(shell printf "\-asan-mapping-offset=0x%x" $$(($(KERN_SHADOW_BASE) - $(KERNBASE)/8)))
+
+KERN_SAN_LDFLAGS := --wrap memcpy  \
+	--wrap memset  \
+	--wrap memmove \
+	--wrap bcopy   \
+	--wrap bzero   \
+	--wrap bcmp    \
+	--wrap memcmp  \
+	--wrap strcat  \
+	--wrap strcpy  \
+	--wrap strlcpy \
+	--wrap strncpy \
+	--wrap strlcat \
+	--wrap strncat \
+	--wrap strnlen \
+	--wrap strlen
+
+endif
+
 ifdef KUBSAN
 
 CFLAGS += -DSAN_ENABLE_KUBSAN
