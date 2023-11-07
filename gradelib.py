@@ -372,6 +372,9 @@ class GDBClient(object):
     def cont(self):
         self.__send("c")
 
+    def step(self):
+        self.__send("s")
+
     def breakpoint(self, addr):
         self.__send("Z1,%x,1" % addr)
 

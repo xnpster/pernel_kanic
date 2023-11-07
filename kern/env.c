@@ -88,6 +88,16 @@ envid2env(envid_t envid, struct Env **env_store, bool need_check_perm) {
  */
 void
 env_init(void) {
+    /* kzalloc_region only works with current_space != NULL */
+
+    /* Allocate envs array with kzalloc_region().
+     * Don't forget about rounding.
+     * kzalloc_region() only works with current_space != NULL */
+    // LAB 8: Your code here
+
+    /* Map envs to UENVS read-only,
+     * but user-accessible (with PROT_USER_ set) */
+    // LAB 8: Your code here
 
     /* Set up envs array */
 
@@ -109,6 +119,10 @@ env_alloc(struct Env **newenv_store, envid_t parent_id, enum EnvType type) {
     struct Env *env;
     if (!(env = env_free_list))
         return -E_NO_FREE_ENV;
+
+    /* Allocate and set up the page directory for this environment. */
+    int res = init_address_space(&env->address_space);
+    if (res < 0) return res;
 
     /* Generate an env_id for this environment */
     int32_t generation = (env->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
@@ -225,7 +239,7 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
 static int
 load_icode(struct Env *env, uint8_t *binary, size_t size) {
     // LAB 3: Your code here
-
+    // LAB 8: Your code here
     return 0;
 }
 
@@ -238,6 +252,7 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
 void
 env_create(uint8_t *binary, size_t size, enum EnvType type) {
     // LAB 3: Your code here
+    // LAB 8: Your code here
 }
 
 
@@ -247,6 +262,17 @@ env_free(struct Env *env) {
 
     /* Note the environment's demise. */
     if (trace_envs) cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, env->env_id);
+
+#ifndef CONFIG_KSPACE
+    /* If freeing the current environment, switch to kern_pgdir
+     * before freeing the page directory, just in case the page
+     * gets reused. */
+    if (&env->address_space == current_space)
+        switch_address_space(&kspace);
+
+    static_assert(MAX_USER_ADDRESS % HUGE_PAGE_SIZE == 0, "Misaligned MAX_USER_ADDRESS");
+    release_address_space(&env->address_space);
+#endif
 
     /* Return the environment to the free list */
     env->env_status = ENV_FREE;
@@ -266,6 +292,10 @@ env_destroy(struct Env *env) {
      * it traps to the kernel. */
 
     // LAB 3: Your code here
+
+    /* Reset in_page_fault flags in case *current* environment
+     * is getting destroyed after performing invalid memory access. */
+    // LAB 8: Your code here
 }
 
 #ifdef CONFIG_KSPACE
@@ -349,6 +379,7 @@ env_run(struct Env *env) {
     }
 
     // LAB 3: Your code here
+    // LAB 8: Your code here
 
     while (1)
         ;

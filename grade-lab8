@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import re
+from gradelib import *
+
+r = Runner(save("jos.out"),
+           stop_breakpoint("readline"))
+
+def E(s, trim=False):
+    """Expand $En in s to the environment ID of the n'th user
+    environment."""
+
+    tmpl = "%x" if trim else "%08x"
+    return re.sub(r"\$E([0-9]+)",
+                  lambda m: tmpl % (0x1000 + int(m.group(1))-1), s)
+
+@test(10)
+def test_divzero():
+    r.user_test("divzero")
+    r.match('Incoming TRAP.0. frame at 0x803fffff40',
+            'TRAP frame at 0x80........',
+            '  trap 0x00000000 Divide error',
+            '  rip  0x008.....',
+            '  ss   0x----0033',
+            E('.$E1. free env $E1'),
+            no=['1337/0 is ........!'])
+
+@test(10)
+def test_softint():
+    r.user_test("softint")
+    r.match('Welcome to the JOS kernel monitor!',
+            'Incoming TRAP.13. frame at 0x803fffff40',
+            'TRAP frame at 0x80........',
+            '  trap 0x0000000d General Protection',
+            '  rip  0x008.....',
+            '  ss   0x----0033',
+            E('.$E1. free env $E1'))
+
+@test(10)
+def test_badsegment():
+    r.user_test("badsegment")
+    r.match('Incoming TRAP.13. frame at 0x803fffff40',
+            'TRAP frame at 0x80........',
+            '  trap 0x0000000d General Protection',
+            '  err  0x00000038',
+            '  rip  0x008.....',
+            '  ss   0x----0033',
+            E('.$E1. free env $E1'))
+
+end_part("A")
+
+@test(7)
+def test_faultread():
+    r.user_test("faultread")
+    r.match("<0x80........> Page fault ip=[0-9A-F]+ va=00000000 err=-U--- -> fault",
+            E(".$E1. free env $E1"),
+            no=["I read ........ from location 0."])
+
+@test(7)
+def test_faultwrite():
+    r.user_test("faultwrite")
+    r.match("<0x80........> Page fault ip=[0-9A-F]+ va=00000000 err=-UW-- -> fault",
+            E(".$E1. free env $E1"))
+
+@test(7)
+def test_faultreadkernel():
+    r.user_test("faultreadkernel")
+    r.match("<0x80........> Page fault ip=[0-9A-F]+ va=8040000000 err=PU--- -> fault",
+            E(".$E1. free env $E1"),
+            no=["I read ........ from location 0."])
+
+@test(7)
+def test_faultwritekernel():
+    r.user_test("faultwritekernel")
+    r.match("<0x80........> Page fault ip=[0-9A-F]+ va=8040000000 err=PUW-- -> fault",
+            E(".$E1. free env $E1"))
+
+@test(7)
+def test_breakpoint():
+    r.user_test("breakpoint")
+    r.match('Welcome to the JOS kernel monitor!',
+            'Incoming TRAP.3. frame at 0x803fffff40',
+            'TRAP frame at 0x80........',
+            '  trap 0x00000003 Breakpoint',
+            '  rip  0x008.....',
+            '  ss   0x----0033',
+            no=[E('.$E1. free env $E1')])
+
+@test(7)
+def test_testbss():
+    r.user_test("testbss")
+    r.match('Making sure bss works right...',
+            'Yes, good.  Now doing a wild write off the end...',
+            'Incoming TRAP.14. frame at 0x803ffe7f40',
+            '<0x80........> Page fault ip=[0-9A-F]+ va=02C..000 err=-UW-- -> fault',
+            E('.$E1. free env $E1'))
+
+@test(7)
+def test_hello():
+    r.user_test("hello")
+    r.match(E('.00000000. new env $E1'),
+            'hello, world',
+            'i am environment 00001000',
+            E('.$E1. exiting gracefully'),
+            E('.$E1. free env $E1'))
+
+@test(7)
+def test_buggyhello():
+    r.user_test("buggyhello")
+    r.match(E('.$E1. user_mem_check assertion failure for va.0000000000000001 ip.00000000008.....'),
+            E('.$E1. free env $E1'))
+
+@test(7)
+def test_buggyhello2():
+    r.user_test("buggyhello2")
+    r.match(E('.$E1. user_mem_check assertion failure for va................. ip.00000000008.....'),
+            E('.$E1. free env $E1'),
+            no=['hello, world'])
+
+@test(7)
+def test_evilhello():
+    r.user_test("evilhello")
+    r.match(E('.$E1. user_mem_check assertion failure for va.0000008040200... ip.00000000008.....'),
+            E('.$E1. free env $E1'))
+
+end_part("B")
+
+run_tests()

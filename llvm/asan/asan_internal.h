@@ -137,10 +137,10 @@ typedef struct {
     uint32_t realsz;
 } asan_fakestack_config;
 
-void platform_asan_init();
+void platform_asan_init(void);
 void NORETURN platform_asan_fatal(const char *msg, uptr p, size_t width, unsigned access_type);
 bool platform_asan_fakestack_enter(uint32_t *thread_id);
-void platform_asan_fakestack_leave();
+void platform_asan_fakestack_leave(void);
 
 extern bool asan_internal_initialised;
 extern uint8_t *asan_internal_shadow_start;
