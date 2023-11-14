@@ -75,6 +75,40 @@ void sys_cputs(const char *string, size_t len);
 int sys_cgetc(void);
 envid_t sys_getenvid(void);
 int sys_env_destroy(envid_t);
+void sys_yield(void);
+int sys_region_refs(void *va, size_t size);
+int sys_region_refs2(void *va, size_t size, void *va2, size_t size2);
+static envid_t sys_exofork(void);
+int sys_env_set_status(envid_t env, int status);
+int sys_env_set_trapframe(envid_t env, struct Trapframe *tf);
+int sys_env_set_pgfault_upcall(envid_t env, void *upcall);
+int sys_alloc_region(envid_t env, void *pg, size_t size, int perm);
+int sys_map_region(envid_t src_env, void *src_pg,
+                   envid_t dst_env, void *dst_pg, size_t size, int perm);
+int sys_map_physical_region(uintptr_t pa, envid_t dst_env,
+                            void *dst_pg, size_t size, int perm);
+int sys_unmap_region(envid_t env, void *pg, size_t size);
+int sys_ipc_try_send(envid_t to_env, uint64_t value, void *pg, size_t size, int perm);
+int sys_ipc_recv(void *rcv_pg, size_t size);
+
+/* This must be inlined. Exercise for reader: why? */
+static inline envid_t __attribute__((always_inline))
+sys_exofork(void) {
+    envid_t ret;
+    asm volatile("int %2"
+                 : "=a"(ret)
+                 : "a"(SYS_exofork), "i"(T_SYSCALL));
+    return ret;
+}
+
+/* ipc.c */
+void ipc_send(envid_t to_env, uint32_t value, void *pg, size_t size, int perm);
+int32_t ipc_recv(envid_t *from_env_store, void *pg, size_t *psize, int *perm_store);
+envid_t ipc_find_env(enum EnvType type);
+
+/* fork.c */
+envid_t fork(void);
+envid_t sfork(void);
 
 /* uvpt.c */
 int foreach_shared_region(int (*fun)(void *start, void *end, void *arg), void *arg);

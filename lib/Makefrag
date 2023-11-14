@@ -16,6 +16,10 @@ LIB_SRCFILES +=		lib/random.c \
 endif
 
 LIB_SRCFILES :=		$(LIB_SRCFILES) \
+			lib/pgfault.c \
+			lib/pfentry.S \
+			lib/fork.c \
+			lib/ipc.c \
 			lib/uvpt.c
 
 LIB_OBJFILES := $(patsubst lib/%.c, $(OBJDIR)/lib/%.o, $(LIB_SRCFILES))
