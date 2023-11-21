@@ -17,6 +17,9 @@
 #include <inc/memlayout.h>
 #include <inc/syscall.h>
 #include <inc/trap.h>
+#include <inc/fs.h>
+#include <inc/fd.h>
+#include <inc/args.h>
 
 #ifdef SANITIZE_USER_SHADOW_BASE
 /* asan unpoison routine used for whitelisting regions. */
@@ -117,6 +120,47 @@ uintptr_t get_phys_addr(void *va);
 int get_prot(void *va);
 bool is_page_dirty(void *va);
 bool is_page_present(void *va);
+
+/* fd.c */
+int close(int fd);
+ssize_t read(int fd, void *buf, size_t nbytes);
+ssize_t write(int fd, const void *buf, size_t nbytes);
+int seek(int fd, off_t offset);
+void close_all(void);
+ssize_t readn(int fd, void *buf, size_t nbytes);
+int dup(int oldfd, int newfd);
+int fstat(int fd, struct Stat *statbuf);
+int stat(const char *path, struct Stat *statbuf);
+
+/* file.c */
+int open(const char *path, int mode);
+int ftruncate(int fd, off_t size);
+int remove(const char *path);
+int sync(void);
+
+/* console.c */
+void cputchar(int c);
+int getchar(void);
+int iscons(int fd);
+int opencons(void);
+
+/* pipe.c */
+int pipe(int pipefds[2]);
+int pipeisclosed(int pipefd);
+
+/* wait.c */
+void wait(envid_t env);
+
+/* File open modes */
+#define O_RDONLY  0x0000 /* open for reading only */
+#define O_WRONLY  0x0001 /* open for writing only */
+#define O_RDWR    0x0002 /* open for reading and writing */
+#define O_ACCMODE 0x0003 /* mask for above modes */
+
+#define O_CREAT 0x0100 /* create if nonexistent */
+#define O_TRUNC 0x0200 /* truncate to zero length */
+#define O_EXCL  0x0400 /* error if already exists */
+#define O_MKDIR 0x0800 /* create directory, not regular file */
 
 #ifdef JOS_PROG
 extern void (*volatile sys_exit)(void);

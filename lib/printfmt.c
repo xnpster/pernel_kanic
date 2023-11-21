@@ -31,6 +31,13 @@ static const char *const error_string[MAXERROR] = {
         [E_NO_SYS] = "no such system call",
         [E_IPC_NOT_RECV] = "env is not recving",
         [E_EOF] = "unexpected end of file",
+        [E_NO_DISK] = "no free space on disk",
+        [E_MAX_OPEN] = "too many files are open",
+        [E_NOT_FOUND] = "file or block not found",
+        [E_BAD_PATH] = "invalid path",
+        [E_FILE_EXISTS] = "file already exists",
+        [E_NOT_EXEC] = "file is not a valid executable",
+        [E_NOT_SUPP] = "operation not supported",
 };
 
 /*

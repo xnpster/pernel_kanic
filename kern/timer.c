@@ -1,15 +1,17 @@
-#include <inc/types.h>
 #include <inc/assert.h>
-#include <inc/string.h>
 #include <inc/memlayout.h>
 #include <inc/stdio.h>
-#include <inc/x86.h>
+#include <inc/string.h>
+#include <inc/types.h>
 #include <inc/uefi.h>
-#include <kern/timer.h>
+#include <inc/x86.h>
 #include <kern/kclock.h>
 #include <kern/picirq.h>
-#include <kern/trap.h>
 #include <kern/pmap.h>
+#include <kern/pmap.h>
+#include <kern/timer.h>
+#include <kern/trap.h>
+#include <kern/tsc.h>
 
 #define kilo      (1000ULL)
 #define Mega      (kilo * kilo)
@@ -90,6 +92,81 @@ acpi_find_table(const char *sign) {
     // LAB 5: Your code here:
 
     return NULL;
+}
+
+MCFG *
+get_mcfg(void) {
+    static MCFG *kmcfg;
+    if (!kmcfg) {
+        struct AddressSpace *as = switch_address_space(&kspace);
+        kmcfg = acpi_find_table("MCFG");
+        switch_address_space(as);
+    }
+
+    return kmcfg;
+}
+
+#define MAX_SEGMENTS 16
+
+uintptr_t
+make_fs_args(char *ustack_top) {
+
+    MCFG *mcfg = get_mcfg();
+    if (!mcfg) {
+        cprintf("MCFG table is absent!");
+        return (uintptr_t)ustack_top;
+    }
+
+    char *argv[MAX_SEGMENTS + 3] = {0};
+
+    /* Store argv strings on stack */
+
+    ustack_top -= 3;
+    argv[0] = ustack_top;
+    nosan_memcpy(argv[0], "fs", 3);
+
+    int nent = (mcfg->h.Length - sizeof(MCFG)) / sizeof(CSBAA);
+    if (nent > MAX_SEGMENTS)
+        nent = MAX_SEGMENTS;
+
+    for (int i = 0; i < nent; i++) {
+        CSBAA *ent = &mcfg->Data[i];
+
+        char arg[64];
+        snprintf(arg, sizeof(arg) - 1, "ecam=%llx:%04x:%02x:%02x",
+                 (long long)ent->BaseAddress, ent->SegmentGroup, ent->StartBus, ent->EndBus);
+
+        int len = strlen(arg) + 1;
+        ustack_top -= len;
+        nosan_memcpy(ustack_top, arg, len);
+        argv[i + 1] = ustack_top;
+    }
+
+    char arg[64];
+    snprintf(arg, sizeof(arg) - 1, "tscfreq=%llx", (long long)tsc_calibrate());
+    int len = strlen(arg) + 1;
+    ustack_top -= len;
+    nosan_memcpy(ustack_top, arg, len);
+    argv[nent + 1] = ustack_top;
+
+    /* Realign stack */
+    ustack_top = (char *)((uintptr_t)ustack_top & ~(2 * sizeof(void *) - 1));
+
+    /* Copy argv vector */
+    ustack_top -= (nent + 3) * sizeof(void *);
+    nosan_memcpy(ustack_top, argv, (nent + 3) * sizeof(argv[0]));
+
+    char **argv_arg = (char **)ustack_top;
+    long argc_arg = nent + 2;
+
+    /* Store argv and argc arguemnts on stack */
+    ustack_top -= sizeof(void *);
+    nosan_memcpy(ustack_top, &argv_arg, sizeof(argv_arg));
+    ustack_top -= sizeof(void *);
+    nosan_memcpy(ustack_top, &argc_arg, sizeof(argc_arg));
+
+    /* and return new stack pointer */
+    return (uintptr_t)ustack_top;
 }
 
 /* Obtain and map FADT ACPI table address. */
