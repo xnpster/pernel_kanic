@@ -4,7 +4,7 @@
 
 bits 32
 
-SECTION .text
+SECTION .data
     align 4
 
 %macro GDT_DESC 2
@@ -36,6 +36,8 @@ LOADER_PARAMS:
     
 PAGE_TABLE:
     dd 0
+
+SECTION .text
 
 global ASM_PFX(IsCpuidSupportedAsm)
 ASM_PFX(IsCpuidSupportedAsm):
