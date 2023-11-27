@@ -9,9 +9,31 @@ FSOFILES := 		$(OBJDIR)/fs/bc.o \
 			$(OBJDIR)/fs/nvme.o
 
 FSIMGTXTFILES :=	fs/newmotd \
-			fs/motd
+			fs/motd \
+			fs/lorem \
+			fs/script \
+			fs/testshell.key \
+			fs/testshell.sh
 
-FSIMGFILES := $(FSIMGTXTFILES)
+USERAPPS :=		$(OBJDIR)/user/init \
+			$(OBJDIR)/user/cat \
+			$(OBJDIR)/user/echo \
+			$(OBJDIR)/user/ls \
+			$(OBJDIR)/user/lsfd \
+			$(OBJDIR)/user/num \
+			$(OBJDIR)/user/forktree \
+			$(OBJDIR)/user/primes \
+			$(OBJDIR)/user/primespipe \
+			$(OBJDIR)/user/sh \
+			$(OBJDIR)/user/testfdsharing \
+			$(OBJDIR)/user/testkbd \
+			$(OBJDIR)/user/testpipe \
+			$(OBJDIR)/user/testpteshare \
+			$(OBJDIR)/user/testshell \
+			$(OBJDIR)/user/hello
+
+
+FSIMGFILES := $(FSIMGTXTFILES) $(USERAPPS)
 
 $(OBJDIR)/fs/%.o: fs/%.c fs/fs.h fs/pci.h fs/nvme.h inc/lib.h $(OBJDIR)/.vars.USER_CFLAGS
 	@echo + cc[USER] $<

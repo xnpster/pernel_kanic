@@ -104,12 +104,18 @@ KERN_BINFILES :=	user/hello \
 			user/pingpongs \
 			user/primes \
 			user/testfile \
+			user/icode \
 			fs/fs \
+			user/testfdsharing \
 			user/testpipe \
 			user/testpiperace \
 			user/testpiperace2 \
 			user/memlayout \
 			user/primespipe \
+			user/testkbd \
+			user/spawnhello \
+			user/testpteshare \
+			user/testshell \
 			user/bounds \
 			user/implicitconv \
 			user/signedoverflow
