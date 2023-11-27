@@ -3,6 +3,7 @@
 
 #ifndef __ASSEMBLER__
 #include <inc/types.h>
+#include <inc/vsyscall.h>
 #include <inc/mmu.h>
 #endif /* not __ASSEMBLER__ */
 

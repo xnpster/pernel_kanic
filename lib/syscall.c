@@ -150,3 +150,8 @@ sys_ipc_recv(void *dstva, size_t size) {
 #endif
     return res;
 }
+
+int
+sys_gettime(void) {
+    return syscall(SYS_gettime, 0, 0, 0, 0, 0, 0, 0);
+}

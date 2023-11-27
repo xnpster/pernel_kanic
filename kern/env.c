@@ -6,6 +6,7 @@
 #include <inc/string.h>
 #include <inc/assert.h>
 #include <inc/elf.h>
+#include <inc/vsyscall.h>
 
 #include <kern/env.h>
 #include <kern/kdebug.h>
@@ -17,6 +18,7 @@
 #include <kern/timer.h>
 #include <kern/traceopt.h>
 #include <kern/trap.h>
+#include <kern/vsyscall.h>
 
 /* Currently active environment */
 struct Env *curenv = NULL;
@@ -29,6 +31,9 @@ struct Env *envs = env_array;
 /* All environments */
 struct Env *envs = NULL;
 #endif
+
+/* Virtual syscall page address */
+volatile int *vsys;
 
 /* Free environment list
  * (linked by Env->env_link) */
@@ -89,7 +94,10 @@ envid2env(envid_t envid, struct Env **env_store, bool need_check_perm) {
  */
 void
 env_init(void) {
-    /* kzalloc_region only works with current_space != NULL */
+    /* Allocate vsys array with kzalloc_region().
+     * Don't forget about rounding.
+     * kzalloc_region only works with current_space != NULL */
+    // LAB 12: Your code here
 
     /* Allocate envs array with kzalloc_region().
      * Don't forget about rounding.
