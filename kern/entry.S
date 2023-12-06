@@ -10,6 +10,7 @@
 
 .globl entry
 entry:
+    cli
     # Set up kernel stack
     leaq bootstacktop(%rip),%rsp
     xor %ebp, %ebp
@@ -70,7 +71,6 @@ sys_yield:
     call csys_yield
     jmp .
 
-# LAB 3: Your code here:
 .globl sys_exit
 .type  sys_exit, @function
 sys_exit:

@@ -1,0 +1,25 @@
+{
+    "files.associations": {
+        "any": "c",
+        "array": "c",
+        "charconv": "c",
+        "compare": "c",
+        "complex": "c",
+        "functional": "c",
+        "ratio": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c",
+        "variant": "c",
+        "bitset": "c",
+        "string_view": "c",
+        "hash_map": "c",
+        "hash_set": "c",
+        "slist": "c",
+        "format": "c",
+        "initializer_list": "c",
+        "span": "c",
+        "valarray": "c",
+        "cstdint": "cpp"
+    }
+}

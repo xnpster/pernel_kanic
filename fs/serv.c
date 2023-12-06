@@ -197,9 +197,20 @@ serve_read(envid_t envid, union Fsipc *ipc) {
                 envid, req->req_fileid, (uint32_t)req->req_n);
     }
 
-    // LAB 10: Your code here
+    struct Fsret_read *ret = &ipc->readRet;
+    struct OpenFile *o;
+    int errno;
 
-    return -1;
+    if ((errno = openfile_lookup(envid, req->req_fileid, &o)))
+        return errno;
+
+    if (req->req_n > PAGE_SIZE)
+        req->req_n = PAGE_SIZE;
+
+    int bytes_cnt = file_read(o->o_file, ret->ret_buf, req->req_n, o->o_fd->fd_offset);
+    if (bytes_cnt > 0)
+        o->o_fd->fd_offset += bytes_cnt;
+    return bytes_cnt;
 }
 
 /* Write req->req_n bytes from req->req_buf to req_fileid, starting at
@@ -212,9 +223,16 @@ serve_write(envid_t envid, union Fsipc *ipc) {
     if (debug)
         cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, (uint32_t)req->req_n);
 
-    // LAB 10: Your code here
+    struct OpenFile *o;
+    int errno;
 
-    return -1;
+    if ((errno = openfile_lookup(envid, req->req_fileid, &o)))
+        return errno;
+
+    int bytes_cnt = file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset);
+    if (bytes_cnt > 0)
+        o->o_fd->fd_offset += bytes_cnt;
+    return bytes_cnt;
 }
 
 /* Stat ipc->stat.req_fileid.  Return the file's struct Stat to the
@@ -276,6 +294,7 @@ serve(void) {
     void *pg;
 
     while (1) {
+        cprintf("fs\n");
         perm = 0;
         size_t sz = PAGE_SIZE;
         req = ipc_recv((int32_t *)&whom, fsreq, &sz, &perm);

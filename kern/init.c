@@ -19,6 +19,12 @@
 #include <kern/kdebug.h>
 #include <kern/traceopt.h>
 
+#include <kern/pci.h>
+#include <kern/arp.h>
+#include <kern/tcp.h>
+
+#define NETWORK_TEST 1
+
 void
 timers_init(void) {
     timertab[0] = timer_rtc;
@@ -131,7 +137,7 @@ i386_init(void) {
     early_boot_pml4_init();
 
     /* Initialize the console.
-     * Can't call cprintf until after we do this! */
+    * Can't call cprintf until after we do this! */
     cons_init();
 
     tsc_calibrate();
@@ -144,27 +150,43 @@ i386_init(void) {
     /* Lab 6 memory management initialization functions */
     init_memory();
 
+    cprintf("mem fin\n");
+
     pic_init();
+    cprintf("pic fin\n");
     timers_init();
+    cprintf("timers fin\n");
 
     /* Framebuffer init should be done after memory init */
     fb_init();
+    cprintf("fb fin\n");
     if (trace_init) cprintf("Framebuffer initialised\n");
 
     /* User environment initialization functions */
     env_init();
+    cprintf("env_itit\n");
 
+    pci_init();
+    initialize_arp_table();
+    setup_tcp();
+
+#ifdef NETWORK_TEST
+    panic("go to monitor for network test");
+#endif
+    
     /* Choose the timer used for scheduling: hpet or pit */
     timers_schedule("hpet0");
 
 #ifdef CONFIG_KSPACE
     /* Touch all you want */
+    /*
     ENV_CREATE_KERNEL_TYPE(prog_test1);
     ENV_CREATE_KERNEL_TYPE(prog_test2);
     ENV_CREATE_KERNEL_TYPE(prog_test3);
     ENV_CREATE_KERNEL_TYPE(prog_test4);
     ENV_CREATE_KERNEL_TYPE(prog_test5);
     ENV_CREATE_KERNEL_TYPE(prog_test6);
+     */
 #else
 
 #if LAB >= 10

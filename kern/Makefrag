@@ -35,7 +35,15 @@ KERN_SRCFILES := kern/bootstrap.S \
 			kern/tsc.c \
 			kern/uefi.c \
 			kern/uefiasm.S \
-			kern/spinlock.c
+			kern/spinlock.c \
+                        kern/e1000.c \
+                        kern/pci.c \
+                        kern/ethernet.c \
+                        kern/arp.c \
+                        kern/ip.c \
+                        kern/icmp.c \
+                        kern/udp.c \
+						kern/tcp.c
 
 ifeq ($(CONFIG_KSPACE),y)
 KERN_SRCFILES += kern/alloc.c

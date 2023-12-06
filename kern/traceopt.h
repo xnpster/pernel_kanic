@@ -50,4 +50,13 @@
 #define trace_init 1
 #endif
 
+// for JOS network
+#ifndef trace_packets
+#define trace_packets 0
+#endif
+
+#ifndef trace_packet_processing
+#define trace_packet_processing 0
+#endif
+
 #endif

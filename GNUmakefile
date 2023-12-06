@@ -41,28 +41,13 @@ TOP = .
 
 ifdef JOSLLVM
 
-ifndef CLANGPREFIX
-CLANGPREFIX := $(shell if PATH="$$ISP_PATH:$$PATH" which clang 2>&1 >/dev/null 2>&1; \
-	then PATH="$$ISP_PATH:$$PATH" which clang | sed s/clang$$//; \
-	else echo "***" 1>&2; \
-	echo "*** Error: Couldn't find LLVM clang." 1>&2; \
-	echo "*** Is the directory with clang in your PATH?" 1>&2; \
-	echo "*** If your LLVM clang toolchain is installed with a command" 1>&2; \
-	echo "*** prefix other than 'clang', set your CLANGPREFIX" 1>&2; \
-	echo "*** environment variable to that prefix and run 'make' again." 1>&2; \
-	echo "*** To turn off this error, run 'gmake CLANGPREFIX= ...'." 1>&2; \
-	echo "*** Perhaps you wanted to use gcc toolchain, in this case ensure" 1>&2; \
-	echo "*** JOSLLVM environment variable is not defined." 1>&2; \
-	echo "***" 1>&2; exit 1; fi)
-endif
-
-CC	:= $(CLANGPREFIX)clang -target x86_64-gnu-linux -pipe
-AS	:= $(CLANGPREFIX)llvm-as
-AR	:= $(CLANGPREFIX)llvm-ar
-LD	:= $(CLANGPREFIX)ld.lld
-OBJCOPY	:= llvm/gnu-objcopy
-OBJDUMP	:= $(CLANGPREFIX)llvm-objdump
-NM	:= $(CLANGPREFIX)llvm-nm
+CC	:= /home/xnpst/ispras-toolchain/ispras-llvm/bin/clang -target x86_64-gnu-linux -pipe
+AS	:= $(shell command -v llvm-as >/dev/null 2>&1 && echo llvm-as || echo as)
+AR	:= $(shell command -v llvm-ar >/dev/null 2>&1 && echo llvm-ar || echo ar)
+LD	:= /home/xnpst/ispras-toolchain/ispras-llvm/bin/ld.lld
+OBJCOPY	:= $(shell command -v llvm-objcopy >/dev/null 2>&1 && echo llvm/gnu-objcopy || echo objcopy)
+OBJDUMP	:= $(shell command -v llvm-objdump >/dev/null 2>&1 && echo llvm-objdump || echo objdump)
+NM	:= $(shell command -v llvm-nm >/dev/null 2>&1 && echo llvm-nm || echo nm)
 
 EXTRA_CFLAGS += -Wno-self-assign -Wno-format-nonliteral -Wno-address-of-packed-member \
                 -Wno-frame-address -Wno-unknown-warning-option
@@ -82,8 +67,8 @@ else
 
 # try to infer the correct GCCPREFIX
 ifndef GCCPREFIX
-GCCPREFIX := $(shell if PATH="$$ISP_PATH:$$PATH" x86_64-ispras-elf-objdump -i 2>&1 | grep '^elf64-x86-64$$' >/dev/null 2>&1; \
-	then PATH="$$ISP_PATH:$$PATH" which x86_64-ispras-elf-gcc | sed s/gcc$$//; \
+GCCPREFIX := $(shell if x86_64-ispras-elf-objdump -i 2>&1 | grep '^elf64-x86-64$$' >/dev/null 2>&1; \
+	then echo 'x86_64-ispras-elf-'; \
 	elif objdump -i 2>&1 | grep 'elf64-x86-64' >/dev/null 2>&1; \
 	then echo ''; \
 	else echo "***" 1>&2; \
@@ -120,8 +105,8 @@ PERL	:= perl
 
 # Try to infer the correct QEMU
 ifndef QEMU
-QEMU := $(shell if PATH="$$ISP_PATH:$$PATH" which qemu-system-x86_64 > /dev/null 2>&1; \
-	then PATH="$$ISP_PATH:$$PATH" which qemu-system-x86_64; exit; \
+QEMU := $(shell if which qemu-system-x86_64 > /dev/null 2>&1; \
+	then echo qemu-system-x86_64; exit; \
 	else \
 	qemu=/Applications/Q.app/Contents/MacOS/x86_64-softmmu.app/Contents/MacOS/x86_64-softmmu; \
 	if test -x $$qemu; then echo $$qemu; exit; fi; fi; \
@@ -131,6 +116,8 @@ QEMU := $(shell if PATH="$$ISP_PATH:$$PATH" which qemu-system-x86_64 > /dev/null
 	echo "*** or have you tried setting the QEMU variable in conf/env.mk?" 1>&2; \
 	echo "***" 1>&2; exit 1)
 endif
+
+QEMU := /home/xnpst/ispras-toolchain/ispras-qemu/bin/qemu-system-x86_64
 
 # Try to generate a unique GDB port if it is not set already.
 ifeq ($(GDBPORT),)
@@ -172,9 +159,8 @@ CFLAGS += -DSAN_ENABLE_KASAN
 KERNBASE := $(shell sed -n 's/^\#define KERN_BASE_ADDR \(.*\)/\1/p' inc/memlayout.h)
 KERN_SHADOW_BASE := $(shell sed -n 's/^\#define SANITIZE_SHADOW_BASE \(.*\)/\1/p' inc/memlayout.h)
 
-KERN_SAN_CFLAGS := -fsanitize=address -fsanitize-blacklist=llvm/blacklist.txt
-KERN_SAN_CFLAGS += -mllvm -asan-globals-live-support=0
-KERN_SAN_CFLAGS += -mllvm $(shell printf "\-asan-mapping-offset=0x%x" $$(($(KERN_SHADOW_BASE) - $(KERNBASE)/8)))
+KERN_SAN_CFLAGS := -fsanitize=address -fsanitize-blacklist=llvm/blacklist.txt -mllvm
+KERN_SAN_CFLAGS += $(shell printf "\-asan-mapping-offset=0x%x" $$(($(KERN_SHADOW_BASE) - $(KERNBASE)/8)))
 
 KERN_SAN_LDFLAGS := --wrap memcpy  \
 	--wrap memset  \
@@ -217,9 +203,8 @@ CFLAGS += -DSAN_ENABLE_UASAN
 # SANITIZE_SHADOW_SIZE 32 MB allows 256 MB of addressible memory (due to byte granularity).
 # Extra page (+0x1000 to offset) avoids an optimisation via 'or' that assumes that unsigned wrap-around is impossible.
 
-USER_SAN_CFLAGS := -fsanitize=address -fsanitize-blacklist=llvm/ublacklist.txt
-USER_SAN_CFLAGS += -mllvm -asan-globals-live-support=0
-USER_SAN_CFLAGS += -mllvm $(shell sed -n 's/^\#define SANITIZE_USER_SHADOW_BASE \(.*\)/ -asan-mapping-offset=\1 /p' inc/memlayout.h)
+USER_SAN_CFLAGS := -fsanitize=address -fsanitize-blacklist=llvm/ublacklist.txt -mllvm
+USER_SAN_CFLAGS += $(shell sed -n 's/^\#define SANITIZE_USER_SHADOW_BASE \(.*\)/ -asan-mapping-offset=\1 /p' inc/memlayout.h)
 
 USER_SAN_LDFLAGS := --wrap memcpy  \
 	--wrap memset  \
@@ -261,7 +246,7 @@ CFLAGS += -DGRADE3_PFX2=$(GRADE3_PFX2)
 endif
 
 # Common linker flags
-LDFLAGS := -m elf_x86_64 -z max-page-size=0x1000 --print-gc-sections --warn-common -z noexecstack
+LDFLAGS := -m elf_x86_64 -z max-page-size=0x1000 --print-gc-sections --warn-common
 
 # Linker flags for JOS programs
 ULDFLAGS := -T user/user.ld --warn-common
@@ -300,7 +285,7 @@ endif
 # force a rebuild of the rule that depends on it.
 $(OBJDIR)/.vars.%: FORCE
 	@test -f $@ || touch $@
-	$(V)echo "$($*)" | cmp -s - $@ || echo "$($*)" > $@
+	$(V)echo "$($*)" | cmp -s $@ || echo "$($*)" > $@
 .PRECIOUS: $(OBJDIR)/.vars.%
 .PHONY: FORCE
 
@@ -315,11 +300,16 @@ include user/Makefrag
 include fs/Makefrag
 endif
 
-QEMUOPTS = -hda fat:rw:$(JOS_ESP) -serial mon:stdio -gdb tcp::$(GDBPORT)
-QEMUOPTS += -m 512M -M q35 -cpu Nehalem -d int,cpu_reset,mmu,pcall -no-reboot
+QEMUOPTS = -netdev tap,id=n0,ifname=tap0,script=no,downscript=no -device e1000,netdev=n0 -hda fat:rw:$(JOS_ESP) -serial mon:stdio -gdb tcp::$(GDBPORT)
+QEMUOPTS += -m 512M -d int,cpu_reset,mmu,pcall -no-reboot
+
 QEMUOPTS += $(shell if $(QEMU) -display none -help | grep -q '^-D '; then echo '-D qemu.log'; fi)
 IMAGES = $(OVMF_FIRMWARE) $(JOS_LOADER) $(OBJDIR)/kern/kernel $(JOS_ESP)/EFI/BOOT/kernel $(JOS_ESP)/EFI/BOOT/$(JOS_BOOTER)
-QEMUOPTS += -drive file=$(OBJDIR)/fs/fs.img,if=none,id=nvm -device nvme,serial=deadbeef,drive=nvm
+ifeq ($(CONFIG_SNAPSHOT),y)
+	QEMUOPTS += -drive file=$(OBJDIR)/fs/fs.img,if=ide,snapshot=on
+else
+	QEMUOPTS += -drive file=$(OBJDIR)/fs/fs.img,if=ide
+endif
 IMAGES += $(OBJDIR)/fs/fs.img
 QEMUOPTS += -bios $(OVMF_FIRMWARE)
 # QEMUOPTS += -debugcon file:$(UEFIDIR)/debug.log -global isa-debugcon.iobase=0x402
@@ -374,6 +364,15 @@ pre-qemu: .gdbinit
 qemu: $(IMAGES) pre-qemu
 	$(QEMU) $(QEMUOPTS)
 
+qemu-oscheck: $(IMAGES) pre-qemu
+	$(QEMU) $(QEMUOPTS) -oscourse
+
+qemu-oscheck-nox-gdb: $(IMAGES) pre-qemu
+	@echo "***"
+	@echo "*** Now run 'gdb'." 1>&2
+	@echo "***"
+	$(QEMU) -nographic $(QEMUOPTS) -S -oscourse
+
 qemu-nox: $(IMAGES) pre-qemu
 	@echo "***"
 	@echo "*** Use Ctrl-a x to exit qemu"
@@ -399,7 +398,7 @@ print-gdbport:
 	@echo $(GDBPORT)
 
 format:
-	@find . -name *.[ch] -not -path "./LoaderPkg/*" -exec $(CLANGPREFIX)clang-format -i {} \;
+	@find . -name *.[ch] -not -path "./LoaderPkg/*" -exec clang-format -i {} \;
 
 # For deleting the build
 clean:

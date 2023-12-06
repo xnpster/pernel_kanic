@@ -70,7 +70,15 @@ dwarf_read_abbrev_entry(const void *entry, unsigned form, void *buf, int bufsize
     } break;
     case DW_FORM_block2: {
         /* Read block of 2-byte length followed by 0 to 65535 contiguous information bytes */
-        // LAB 2: Your code here
+        Dwarf_Half length = get_unaligned(entry, Dwarf_Half);
+        entry += sizeof(Dwarf_Half);
+        struct Slice slice = {
+                .mem = entry,
+                .len = length,
+        };
+        if (buf) memcpy(buf, &slice, sizeof(struct Slice));
+        entry += length;
+        bytes = sizeof(Dwarf_Half) + length;
     } break;
     case DW_FORM_block4: {
         uint32_t length = get_unaligned(entry, uint32_t);
@@ -559,8 +567,16 @@ address_by_fname(const struct Dwarf_Addrs *addrs, const char *fname, uintptr_t *
                      * To find it, we need to scan both abbreviation table and attribute values.
                      * You can read unsigned LEB128 number using dwarf_read_uleb128 function.
                      * Attribute value can be obtained using dwarf_read_abbrev_entry function. */
-                    // LAB 3: Your code here:
                     uintptr_t low_pc = 0;
+
+                    do {
+                        abbrev_entry += dwarf_read_uleb128(abbrev_entry, &name);
+                        abbrev_entry += dwarf_read_uleb128(abbrev_entry, &form);
+                        if (name == DW_AT_low_pc)
+                            entry += dwarf_read_abbrev_entry(entry, form, &low_pc, sizeof(low_pc), address_size);
+                        else
+                            entry += dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
+                    } while (name || form);
 
                     if (low_pc) {
                         *offset = low_pc;

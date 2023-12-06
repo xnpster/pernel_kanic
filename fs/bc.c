@@ -32,7 +32,13 @@ bc_pgfault(struct UTrapframe *utf) {
      * of the block from the disk into that page.
      * Hint: first round addr to page boundary. fs/ide.c has code to read
      * the disk. */
-    // LAB 10: Your code here
+    int errno;
+    addr = ROUNDDOWN(addr, 4096);
+    if ((errno = sys_alloc_region(0, addr, 4096, PTE_U | PTE_W)))
+        panic("bc_pgfault failed sys_alloc_region: %i", errno);
+
+    if ((errno = nvme_read(blockno * BLKSECTS, addr, BLKSECTS)))
+        panic("bc_pgfault failed ide_read: %i", errno);
 
     return 1;
 }
@@ -47,16 +53,22 @@ bc_pgfault(struct UTrapframe *utf) {
 void
 flush_block(void *addr) {
     blockno_t blockno = ((uintptr_t)addr - (uintptr_t)DISKMAP) / BLKSIZE;
-    int res;
 
     if (addr < (void *)(uintptr_t)DISKMAP || addr >= (void *)(uintptr_t)(DISKMAP + DISKSIZE))
         panic("flush_block of bad va %p", addr);
     if (blockno && super && blockno >= super->s_nblocks)
         panic("reading non-existent block %08x out of %08x\n", blockno, super->s_nblocks);
 
-    // LAB 10: Your code here.
-    (void)res;
+    int errno;
+    addr = ROUNDDOWN(addr, 4096);
+    if (!is_page_present(addr) || !is_page_dirty(addr))
+        return;
 
+    if ((errno = nvme_write(blockno * BLKSECTS, addr, BLKSECTS)))
+        panic("flush_block failed ide_write: %i", errno);
+
+    if ((errno = sys_map_region(0, addr, 0, addr, 4096, get_prot(addr) & PTE_SYSCALL)))
+        panic("flush_block failed sys_map_region: %i", errno);
 
     assert(!is_page_dirty(addr));
 }
